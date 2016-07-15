@@ -42,14 +42,21 @@ from webhook2lambda2sqs.version import VERSION, PROJECT_URL
 with open('README.rst') as file:
     long_description = file.read()
 
-requires = [
-    'something'
-]
-
 classifiers = [
-    'Development Status :: 1 - Planning',
+    'Development Status :: 3 - Alpha',
+    'Environment :: Console',
+    'Environment :: Other Environment',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: System Administrators',
+    'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
+    'Natural Language :: English',
+    'Operating System :: OS Independent',
     'Programming Language :: Python',
+    'Programming Language :: Python :: 2.7',
     'Programming Language :: Python :: 3',
+    'Topic :: Internet :: WWW/HTTP',
+    'Topic :: Utilities'
 ]
 
 setup(
@@ -59,9 +66,9 @@ setup(
     author_email='jason@jasonantman.com',
     packages=find_packages(),
     url=PROJECT_URL,
-    description='Description here.',
+    description='Generate code and manage infrastructure for receiving '
+                'webhooks with AWS API Gateway and pushing to SQS via Lambda.',
     long_description=long_description,
-    install_requires=requires,
-    keywords="",
+    keywords="aws webhook lambda apigateway sqs queue amazon",
     classifiers=classifiers
 )

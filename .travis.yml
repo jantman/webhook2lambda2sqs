@@ -7,27 +7,19 @@ cache:
 
 matrix:
   include:
-    - python: "2.6"
-      env: TOXENV=py26 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
     - python: "2.7"
       env: TOXENV=py27 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
-    - python: "3.2"
-      env: TOXENV=py32 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
     - python: "3.3"
       env: TOXENV=py33 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
     - python: "3.4"
       env: TOXENV=py34 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
     - python: "3.5"
       env: TOXENV=py35 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
-    - python: "pypy"
-      env: TOXENV=pypy PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
-    - python: "pypy3"
-      env: TOXENV=pypy3 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
     - python: "2.7"
       env: TOXENV=docs PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
 
 install:
-- virtualenv --version; test $TOXENV = "py32-unit" -o $TOXENV = "py32-versioncheck" -o $TOXENV = "pypy3-unit" -o $TOXENV = "pypy3-versioncheck" && pip install --upgrade virtualenv==13.1.2 || /bin/true
+- virtualenv --version
 - git config --global user.email "travisci@jasonantman.com"
 - git config --global user.name "travisci"
 - pip install tox
@@ -46,9 +38,9 @@ notifications:
     on_failure: always
   pushover:
     users:
-    - secure: Your_encrypted_Pushover_User_Key_Here_(repository_specific)
+    - secure: "Ol4uCFNV8Ywin68DJ6GfyP7cicG+McHfj5+8uyTCH4bPk8BRY9OinIKL3mSomvgnYG5UXIqEFE8LH4om/Gug5iquDrghtez4JQhYhMPTf0O4ECaqv3YB9q+7y2ONaPH2kE7Ls3IXty3PLzNjxm0CJyzVQaMWs5eJEDUo5Skdvzj6zSParwv5sqfiDKYJelZi5JLv0Rn6Lr+xw05sL1YQpIV37EWzbrChJrKL4C9yWGxfzRMj097U4o+OqVkxRon2pdIWm4+YJb61c7YrZhUn3hoWLEuby1Av5KWEyPtzFTSURf9V2b3hMjtCuCz7U6wLDLtrLMZRsnXTrUwtpCEzYbXDKrqNI9hzmkDdFTLzIRrV4ZNA+oanK6raDpRqgDQs4ncc0tJgppQzVfsRkpjRG+84JGUF3qiDbzGhB1GAR3g+zCXF9QXfSbGjaGiOhRnDIXkKeDRvAkxYsF/o7AsPfBheKKGBzVlUsFw1dB7NJDLZ9XlYEm6odFrM0o5YpBh0EsH9WeL4OcLi7B9c7ko6Qzcg+l1J8bha41kWF6R0jt1Mmnszgf7/xQ9IxRlmTO/xvmL6SmB7pYV7vlUG50J5ees56K92STpuAhDyCDwK2B4s2yK0GXjCEAJAxK2xNLaB0QkpmpDQKFsb2mnCqQAJtSeGjcP1ApbXtDKvi+kP1yg="
     api_key:
-      secure: Your_encrypted_Pushover_api/application_key_here_(repository_specific)
+      secure: "I2sGVwaF4qcRRWmCJiDiPVBv71OhzIqyIAOuBajbcL5bSGUpGfdKfPTXP7I7DcC7d9wo0EgPJYZDXwzZ1G7e3RK3uUeYAowk4FBF4nlhZuPqtSqM1ZC3GJuXR06go1M+4rbh9aSEMUQ2iKUyy7/yy4CqlEXutPJTd0Ngc3NW6UMyTMP8YorUEIZjKKzYkkcH4z5it/D/Tx7ap/qgfonzZ00a53ifzpofw+RCecrejCeUZl9DOlLp7mSrkENC8yh0i4CVTOVu/gdekdkbqpgkAh854samFszubwrrB2UkcUN8eVv3eEACRQURaALM5dHhKl1jq1yZaaSIDNXPQ1AOT/2atSD/RTbOykI+D4e/OHfYnvfZ6DzBvS9EmIUn0OsIS97amXrpHYcuBQmCxsHnRByW+Ov1Dp/YXTMa2tfSD+4BI1jX1/mAHfQpmVtNy+Ci33CsdmWdzN2ujcYWgiD48/ebgYMBHYGmHCnw4Jb/lOqqcjm+FSKuTHMexp9mY7Iaz8GxtoISWxCgHmtWoysfaHBKcGoSr0BGAW5NOz+ZJrBYccYd/yfwjCXu1/svvejXEFuWDBHK61hOY8PRjHWM/Yz5spIstUy83k8fQWr3N1v+prN+dzJjKyzqgu7y1j+96ohA5Kp1LY84awkaEM6MT38OwZGCWWqKANaaSBnKy1E="
 branches:
   except:
     - "/^noci-.*$/"
