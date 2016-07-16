@@ -106,7 +106,8 @@ as documentation on the various fields with ``webhook2lambda2sqs example-config`
 the config file example will be written to STDOUT (so it may be redirected to a
 file) and the documentation will be written to STDERR.
 
-.. code-block
+Example output of the ``example-config`` action::
+
     $ webhook2lambda2sqs example-config
     {
         "aws_tags": {
