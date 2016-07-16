@@ -1,3 +1,8 @@
+config.json
+terraform.tfstate
+terraform.tfstate.backup
+.terraform/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
