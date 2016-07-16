@@ -35,10 +35,9 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 import sys
-import logging
-import pytest
 
 from webhook2lambda2sqs.tf_generator import TerraformGenerator
+from webhook2lambda2sqs.version import VERSION, PROJECT_URL
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -55,5 +54,40 @@ pbm = 'webhook2lambda2sqs.tf_generator'
 
 class TestTerraformGenerator(object):
 
+    def setup(self):
+        self.conf = {}
+
+        def se_get(k):
+            return self.conf.get(k, None)
+
+        config = Mock()
+        config.get.side_effect = se_get
+        self.cls = TerraformGenerator(config)
+
     def test_init(self):
-        pass
+        config = Mock()
+        cls = TerraformGenerator(config)
+        assert cls.config == config
+
+    def test_get_tags_none(self):
+        res = self.cls._get_tags()
+        assert res == {
+            'Name': 'webhook2lambda2sqs',
+            'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
+        }
+
+    def test_get_tags(self):
+        self.conf = {
+            'aws_tags': {
+                'Name': 'myname',
+                'other': 'otherval',
+                'foo': 'bar'
+            }
+        }
+        res = self.cls._get_tags()
+        assert res == {
+            'Name': 'myname',
+            'other': 'otherval',
+            'foo': 'bar',
+            'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
+        }

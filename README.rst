@@ -103,6 +103,52 @@ as documentation on the various fields with ``webhook2lambda2sqs example-config`
 the config file example will be written to STDOUT (so it may be redirected to a
 file) and the documentation will be written to STDERR.
 
+.. code-block
+    $ webhook2lambda2sqs example-config
+    {
+        "aws_tags": {
+            "tag2_name": "tag2_value",
+            "tag_name": "tag_value"
+        },
+        "endpoints": {
+            "some_resource_name": {
+                "method": "POST",
+                "queues": [
+                    "queueName1",
+                    "queueName2"
+                ]
+            }
+        },
+        "name_suffix": "something",
+        "terraform_remote_state": {
+            "backend": "backend_name",
+            "config": {
+                "option_name": "option_value"
+            }
+        }
+    }
+
+    Configuration description:
+
+    aws_tags - a dict of key/value pairs to set as tags on all terraform-managed
+      resources that support tagging. If not specified here, a "Name" tag will
+      automatically be added with a value as described in the "name_suffix"
+      description below.
+    endpoints - dict describing each webhook endpoint to setup in API Gateway.
+      - key is the API Gateway resource name (final component of the URL)
+      - value is a dict with the following keys:
+        - 'method' - HTTP method for API Gateway resource
+        - 'queues' - list of SQS queue names to push request content to
+    name_suffix - by default, all AWS resources will be named
+      "webhook2lambda2sqs"; specify a suffix to add to that name here.
+    terraform_remote_state - dict of Terraform remote state options. If
+      specified, will call 'terraform remote config' before every terraform
+      command to setup remote state storage.
+
+      Dict keys:
+      - 'backend' - name of the terraform remote state backend to configure
+      - 'config' - dict of backend configuration option name/value pairs
+
 Usage
 -----
 

@@ -36,7 +36,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 
 import logging
-from webhook2lambda2sqs.utils import run_cmd
+from webhook2lambda2sqs.utils import run_cmd, read_json_file
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,28 @@ class TerraformRunner(object):
         """
         self.config = config
         self.tf_path = tf_path
+        self._validate()
+
+    def _validate(self):
+        """
+        Confirm that we can run terraform (by calling its version action)
+        and then validate the configuration.
+        """
+        try:
+            self._run_tf('version')
+        except:
+            raise Exception('ERROR: executing \'%s version\' failed; is '
+                            'terraform installed and is the path to it (%s) '
+                            'correct?' % (self.tf_path, self.tf_path))
+        try:
+            self._run_tf('validate', ['.'])
+        except:
+            logger.critical("Terraform config validation failed. "
+                            "This is almost certainly a bug in "
+                            "webhook2lambda2sqs; please re-run with '-vv' and "
+                            "open a bug at <https://github.com/jantman/"
+                            "webhook2lambda2sqs/issues>")
+            raise Exception('ERROR: Terraform config validation failed.')
 
     def _args_for_remote(self):
         """
@@ -63,7 +85,7 @@ class TerraformRunner(object):
         not present in configuration.
 
         :return: list of args for 'terraform remote config' or None
-        :rtype: list or None
+        :rtype: list
         """
         conf = self.config.get('terraform_remote_state')
         if conf is None:
@@ -100,17 +122,17 @@ class TerraformRunner(object):
         :type cmd: str
         :param cmd_args: arguments to command
         :type cmd_args: list
-
         :return: command output
         :rtype: str
         :raises: Exception on non-zero exit
         """
         args = [self.tf_path, cmd] + cmd_args
-        logger.info('Running terraform command: %s', ' '.join(args))
-        out, retcode = run_cmd(args, stream=stream)
+        arg_str = ' '.join(args)
+        logger.info('Running terraform command: %s', arg_str)
+        out, retcode = run_cmd(arg_str, stream=stream)
         if retcode != 0:
             logger.critical('Terraform command (%s) failed with exit code '
-                            '%d:\n%s', ' '.join(args), retcode, out)
+                            '%d:\n%s', arg_str, retcode, out)
             raise Exception('terraform %s failed' % cmd)
         return out
 
@@ -145,6 +167,25 @@ class TerraformRunner(object):
             logger.warning('Terraform apply finished successfully.')
         else:
             logger.warning("Terraform apply finished successfully:\n%s", out)
+        self._show_outputs()
+
+    def _show_outputs(self):
+        """
+        Print the terraform outputs.
+        """
+        fpath = '.terraform/terraform.tfstate'
+        try:
+            state = read_json_file(fpath)
+            logger.debug('Terraform state: %s', state)
+            print("\n\n" + '=> Terraform Outputs:')
+            for mod in state['modules']:
+                if 'outputs' not in mod:
+                    continue
+                for k in sorted(mod['outputs'].keys()):
+                    print('%s = %s' % (k, mod['outputs'][k]))
+        except Exception:
+            logger.error('Error showing outputs from terraform state file: %s',
+                         fpath, excinfo=1)
 
     def destroy(self, stream=False):
         """

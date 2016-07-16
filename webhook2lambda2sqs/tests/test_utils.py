@@ -35,10 +35,10 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 import sys
-
+import pytest
 import json
 
-from webhook2lambda2sqs.utils import pretty_json, run_cmd
+from webhook2lambda2sqs.utils import pretty_json, run_cmd, read_json_file
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -46,9 +46,9 @@ if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock, DEFAULT  # noqa
+    from mock import patch, call, Mock, DEFAULT, mock_open  # noqa
 else:
-    from unittest.mock import patch, call, Mock, DEFAULT  # noqa
+    from unittest.mock import patch, call, Mock, DEFAULT, mock_open  # noqa
 
 pbm = 'webhook2lambda2sqs.utils'
 
@@ -107,3 +107,33 @@ class TestUtils(object):
             call.info('Command exited with code %d', 5),
             call.debug("Command output:\n%s", 'foo')
         ]
+
+    def test_read_json_file(self):
+        val = {'foo': 'bar', 'baz': 2}
+        content = json.dumps(val)
+        with patch('%s.os.path.exists' % pbm, autospec=True) as mock_exist:
+            mock_exist.return_value = True
+            with patch('%s.open' % pbm,
+                       mock_open(read_data=content), create=True) as m_open:
+                res = read_json_file('/my/path')
+        assert res == val
+        assert mock_exist.mock_calls == [call('/my/path')]
+        assert m_open.mock_calls == [
+            call('/my/path', 'r'),
+            call().__enter__(),
+            call().read(),
+            call().__exit__(None, None, None)
+        ]
+
+    def test_read_json_file_no_exist(self):
+        val = {'foo': 'bar', 'baz': 2}
+        content = json.dumps(val)
+        with patch('%s.os.path.exists' % pbm, autospec=True) as mock_exist:
+            mock_exist.return_value = False
+            with patch('%s.open' % pbm,
+                       mock_open(read_data=content), create=True) as m_open:
+                with pytest.raises(Exception) as excinfo:
+                    read_json_file('/my/path')
+        assert excinfo.value.message == 'ERROR: file /my/path does not exist.'
+        assert mock_exist.mock_calls == [call('/my/path')]
+        assert m_open.mock_calls == []

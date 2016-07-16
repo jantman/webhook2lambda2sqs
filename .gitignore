@@ -2,6 +2,8 @@ config.json
 terraform.tfstate
 terraform.tfstate.backup
 .terraform/
+webhook2lambda2sqs.tf
+webhook2lambda2sqs_func.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

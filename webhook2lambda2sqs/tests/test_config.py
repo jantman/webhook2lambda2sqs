@@ -35,9 +35,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 import sys
-import logging
-import pytest
-import json
 
 from webhook2lambda2sqs.config import Config
 
@@ -73,35 +70,15 @@ class TestConfig(object):
         ]
 
     def test_load_config(self):
-        val = {'foo': 'bar', 'baz': 2}
-        content = json.dumps(val)
-        with patch('%s.os.path.exists' % pbm, autospec=True) as mock_exist:
-            mock_exist.return_value = True
-            with patch('%s.open' % pbm,
-                       mock_open(read_data=content), create=True) as m_open:
+        with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                mock_read.return_value = {'foo': 'bar'}
                 res = self.cls._load_config('/my/path')
-        assert res == val
-        assert mock_exist.mock_calls == [call('/my/path')]
-        assert m_open.mock_calls == [
-            call('/my/path', 'r'),
-            call().__enter__(),
-            call().read(),
-            call().__exit__(None, None, None)
+        assert res == {'foo': 'bar'}
+        assert mock_read.mock_calls == [call('/my/path')]
+        assert mock_logger.mock_calls == [
+            call.debug('Loading configuration from: %s', '/my/path')
         ]
-
-    def test_load_config_no_exist(self):
-        val = {'foo': 'bar', 'baz': 2}
-        content = json.dumps(val)
-        with patch('%s.os.path.exists' % pbm, autospec=True) as mock_exist:
-            mock_exist.return_value = False
-            with patch('%s.open' % pbm,
-                       mock_open(read_data=content), create=True) as m_open:
-                with pytest.raises(Exception) as excinfo:
-                    self.cls._load_config('/my/path')
-        assert excinfo.value.message == 'ERROR: configuration file /my/path ' \
-                                        'does not exist.'
-        assert mock_exist.mock_calls == [call('/my/path')]
-        assert m_open.mock_calls == []
 
     def test_example_config(self):
         with patch('%s.pretty_json' % pbm) as mock_pretty:

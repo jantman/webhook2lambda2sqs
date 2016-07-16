@@ -66,13 +66,31 @@ class TestTerraformRunner(object):
 
     def test_init(self):
         c = Mock()
-        cls = TerraformRunner(c, 'mypath')
+        with patch('%s._validate' % pb, autospec=True) as mock_validate:
+            cls = TerraformRunner(c, 'mypath')
         assert cls.config == c
         assert cls.tf_path == 'mypath'
+        assert mock_validate.mock_calls == [call(cls)]
+
+    def DONTtest_init_version_fail(self):
+
+        def se_exc(*args):
+            raise Exception('foo')
+
+        c = Mock()
+        with patch('%s._run_tf' % pb) as mock_run:
+            mock_run.side_effect = se_exc
+            with pytest.raises(Exception) as excinfo:
+                TerraformRunner(c, 'mypath')
+        assert excinfo.value.message == 'ERROR: executing \'mypath ' \
+                                        'version\' failed; is terraform ' \
+                                        'installed and is the path to it ' \
+                                        '(mypath) correct?'
 
     def test_args_for_remote_none(self):
         conf = self.mock_config()
-        cls = TerraformRunner(conf, 'tfpath')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(conf, 'tfpath')
         assert cls._args_for_remote() is None
 
     def test_args_for_remote(self):
@@ -85,7 +103,8 @@ class TestTerraformRunner(object):
                 }
             }
         })
-        cls = TerraformRunner(conf, 'tfpath')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(conf, 'tfpath')
         assert cls._args_for_remote() == [
             '-backend=consul',
             '-backend-config="path=consul/path"',
@@ -93,7 +112,8 @@ class TestTerraformRunner(object):
         ]
 
     def test_set_remote_none(self):
-        cls = TerraformRunner(self.mock_config(), '/path/to/terraform')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), '/path/to/terraform')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._args_for_remote' % pb, autospec=True) as mock_args:
                 with patch('%s.run_cmd' % pbm, autospec=True) as mock_run:
@@ -108,7 +128,8 @@ class TestTerraformRunner(object):
 
     def test_set_remote(self):
         expected_args = ['config', 'foo', 'bar']
-        cls = TerraformRunner(self.mock_config(), 'terraform')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._args_for_remote' % pb, autospec=True) as mock_args:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
@@ -125,22 +146,24 @@ class TestTerraformRunner(object):
         ]
 
     def test_run_tf(self):
-        expected_args = ['terraform', 'remote', 'config', 'foo', 'bar']
-        cls = TerraformRunner(self.mock_config(), 'terraform')
+        expected_args = 'terraform plan config foo bar'
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s.run_cmd' % pbm, autospec=True) as mock_run:
                 mock_run.return_value = ('myoutput', 0)
-                cls._run_tf('remote', cmd_args=['config', 'foo', 'bar'])
+                cls._run_tf('plan', cmd_args=['config', 'foo', 'bar'])
         assert mock_run.mock_calls == [
             call(expected_args, stream=False)
         ]
         assert mock_logger.mock_calls == [
-            call.info('Running terraform command: %s', ' '.join(expected_args))
+            call.info('Running terraform command: %s', expected_args)
         ]
 
     def test_run_tf_fail(self):
-        expected_args = ['terraform-bin', 'plan', 'config', 'foo', 'bar']
-        cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        expected_args = 'terraform-bin plan config foo bar'
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s.run_cmd' % pbm, autospec=True) as mock_run:
                 mock_run.return_value = ('myoutput', 5)
@@ -152,13 +175,14 @@ class TestTerraformRunner(object):
             call(expected_args, stream=True)
         ]
         assert mock_logger.mock_calls == [
-            call.info('Running terraform command: %s', ' '.join(expected_args)),
+            call.info('Running terraform command: %s', expected_args),
             call.critical('Terraform command (%s) failed with exit code '
-                          '%d:\n%s', ' '.join(expected_args), 5, 'myoutput')
+                          '%d:\n%s', expected_args, 5, 'myoutput')
         ]
 
     def test_plan(self):
-        cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
@@ -176,7 +200,8 @@ class TestTerraformRunner(object):
         ]
 
     def test_plan_stream(self):
-        cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
@@ -194,12 +219,15 @@ class TestTerraformRunner(object):
         ]
 
     def test_apply(self):
-        cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
                     mock_run.return_value = 'output'
-                    cls.apply()
+                    with patch('%s._show_outputs' % pb,
+                               autospec=True) as mock_show:
+                        cls.apply()
         assert mock_set.mock_calls == [call(cls, stream=False)]
         assert mock_run.mock_calls == [
             call(cls, 'apply', cmd_args=['-input=false', '-refresh=true', '.'],
@@ -210,14 +238,18 @@ class TestTerraformRunner(object):
                          '-input=false -refresh=true .'),
             call.warning("Terraform apply finished successfully:\n%s", 'output')
         ]
+        assert mock_show.mock_calls == [call(cls)]
 
     def test_apply_stream(self):
-        cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
                     mock_run.return_value = 'output'
-                    cls.apply(stream=True)
+                    with patch('%s._show_outputs' % pb,
+                               autospec=True) as mock_show:
+                        cls.apply(stream=True)
         assert mock_set.mock_calls == [call(cls, stream=True)]
         assert mock_run.mock_calls == [
             call(cls, 'apply', cmd_args=['-input=false', '-refresh=true', '.'],
@@ -228,9 +260,63 @@ class TestTerraformRunner(object):
                          '-input=false -refresh=true .'),
             call.warning("Terraform apply finished successfully.")
         ]
+        assert mock_show.mock_calls == [call(cls)]
+
+    def test_show_outputs(self, capsys):
+        state = {
+            'version': 1,
+            'serial': 1,
+            'modules': [
+                {
+                    'path': ['root'],
+                    'resources': {'foo': 'bar'},
+                    'outputs': {
+                        'out1': "foo\nbar",
+                        'out2': "baz"
+                    }
+                },
+                {
+                    'path': ['foo']
+                }
+            ]
+        }
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:
+                mock_read.return_value = state
+                cls._show_outputs()
+        assert mock_read.mock_calls == [call('.terraform/terraform.tfstate')]
+        out, err = capsys.readouterr()
+        assert err == ''
+        assert out == "\n\n=> Terraform Outputs:\nout1 = foo\nbar\nout2 = baz\n"
+        assert mock_logger.mock_calls == [
+            call.debug('Terraform state: %s', state)
+        ]
+
+    def test_show_outputs_exception(self, capsys):
+
+        def se_exc(fpath):
+            raise Exception('foo')
+
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:
+                mock_read.side_effect = se_exc
+                cls._show_outputs()
+        assert mock_read.mock_calls == [call('.terraform/terraform.tfstate')]
+        out, err = capsys.readouterr()
+        assert err == ''
+        assert out == ''
+        assert mock_logger.mock_calls == [
+            call.error('Error showing outputs from terraform state file: %s',
+                       '.terraform/terraform.tfstate', excinfo=1)
+        ]
 
     def test_destroy(self):
-        cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
@@ -249,7 +335,8 @@ class TestTerraformRunner(object):
         ]
 
     def test_destroy_stream(self):
-        cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
@@ -264,4 +351,63 @@ class TestTerraformRunner(object):
             call.warning('Running terraform destroy: %s',
                          '-refresh=true .'),
             call.warning("Terraform destroy finished successfully.")
+        ]
+
+    def test_validate(self):
+
+        def se_run(*args, **kwargs):
+            return
+
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+            mock_run.side_effect = se_run
+            cls._validate()
+        assert mock_run.mock_calls == [
+            call(cls, 'version'),
+            call(cls, 'validate', ['.'])
+        ]
+
+    def test_validate_version_fail(self):
+        def se_run(*args, **kwargs):
+            if args[0] == 'version':
+                raise Exception()
+
+        # validate is called in __init__; we can't easily patch and re-call
+        with patch('%s._run_tf' % pb) as mock_run:
+            mock_run.side_effect = se_run
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                with pytest.raises(Exception) as excinfo:
+                    TerraformRunner(self.mock_config(), 'terraform-bin')
+        assert mock_run.mock_calls == [
+            call('version')
+        ]
+        assert excinfo.value.message == 'ERROR: executing \'terraform-bin ' \
+                                        'version\' failed; is terraform ' \
+                                        'installed and is the path to it ' \
+                                        '(terraform-bin) correct?'
+        assert mock_logger.mock_calls == []
+
+    def test_validate_fail(self):
+        def se_run(*args, **kwargs):
+            if args[0] == 'validate':
+                raise Exception()
+
+        # validate is called in __init__; we can't easily patch and re-call
+        with patch('%s._run_tf' % pb) as mock_run:
+            mock_run.side_effect = se_run
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                with pytest.raises(Exception) as excinfo:
+                    TerraformRunner(self.mock_config(), 'terraform-bin')
+        assert mock_run.mock_calls == [
+            call('version'),
+            call('validate', ['.'])
+        ]
+        assert excinfo.value.message == 'ERROR: Terraform config validation ' \
+                                        'failed.'
+        assert mock_logger.mock_calls == [
+            call.critical("Terraform config validation failed. This is almost "
+                          "certainly a bug in webhook2lambda2sqs; please "
+                          "re-run with '-vv' and open a bug at <https://"
+                          "github.com/jantman/webhook2lambda2sqs/issues>")
         ]

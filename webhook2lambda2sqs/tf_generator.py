@@ -37,6 +37,8 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import logging
 
+from webhook2lambda2sqs.version import VERSION, PROJECT_URL
+
 logger = logging.getLogger(__name__)
 
 
@@ -50,6 +52,26 @@ class TerraformGenerator(object):
         :type config: :py:class:`~.Config`
         """
         self.config = config
+
+    def _get_tags(self):
+        """
+        Return a dict of tags to apply to AWS resources.
+
+        :return: dict of tags to apply to AWS resources
+        :rtype: dict
+        """
+        tags = self.config.get('aws_tags')
+        if tags is None:
+            tags = {}
+        suffix = self.config.get('name_suffix')
+        if suffix is None:
+            suffix = ''
+        if 'Name' not in tags:
+            tags['Name'] = 'webhook2lambda2sqs' + suffix
+        tags['created_by'] = 'webhook2lambda2sqs v%s <%s>' % (
+            VERSION, PROJECT_URL)
+        logger.debug('AWS Tags: %s', tags)
+        return tags
 
     def generate(self):
         """

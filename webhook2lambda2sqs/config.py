@@ -36,11 +36,10 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 
 import logging
-import json
 import os
 from textwrap import dedent
 
-from webhook2lambda2sqs.utils import pretty_json
+from webhook2lambda2sqs.utils import pretty_json, read_json_file
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +47,7 @@ logger = logging.getLogger(__name__)
 class Config(object):
 
     _example = {
+        'name_suffix': 'something',
         'endpoints': {
             'some_resource_name': {
                 'method': 'POST',
@@ -59,17 +59,28 @@ class Config(object):
             'config': {
                 'option_name': 'option_value'
             }
+        },
+        'aws_tags': {
+            'tag_name': 'tag_value',
+            'tag2_name': 'tag2_value'
         }
     }
 
     _example_docs = """
     Configuration description:
 
+    aws_tags - a dict of key/value pairs to set as tags on all terraform-managed
+      resources that support tagging. If not specified here, a "Name" tag will
+      automatically be added with a value as described in the "name_suffix"
+      description below. A "created_by" tag will be added with information
+      about the this program and its version will be added to this dict.
     endpoints - dict describing each webhook endpoint to setup in API Gateway.
       - key is the API Gateway resource name (final component of the URL)
       - value is a dict with the following keys:
         - 'method' - HTTP method for API Gateway resource
         - 'queues' - list of SQS queue names to push request content to
+    name_suffix - by default, all AWS resources will be named
+      "webhook2lambda2sqs"; specify a suffix to add to that name here.
     terraform_remote_state - dict of Terraform remote state options. If
       specified, will call 'terraform remote config' before every terraform
       command to setup remote state storage.
@@ -111,12 +122,8 @@ class Config(object):
         :rtype: dict
         """
         p = os.path.abspath(os.path.expanduser(path))
-        if not os.path.exists(p):
-            raise Exception('ERROR: configuration file %s does not exist.' % p)
-        with open(p, 'r') as fh:
-            raw = fh.read()
-        res = json.loads(raw)
-        return res
+        logger.debug('Loading configuration from: %s', p)
+        return read_json_file(p)
 
     @staticmethod
     def example_config():
