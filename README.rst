@@ -121,6 +121,15 @@ Managing Infrastructure
 
 Something else here.
 
+**Important Note:** Unlike CloudFormation, Terraform relies on storing the
+`state <https://www.terraform.io/docs/state/index.html>`_ of your managed infrastructure
+itself. You can use a variety of `remote <https://www.terraform.io/docs/state/remote/index.html>`_
+storage options including Consul, etcd, http and S3, or you can leave the default
+of storing state locally in a ``terraform.tfstate`` file. Please note that you'll
+need to save state somewhere in order to update or destroy the infrastructure you
+created. You can specify remote state options in the configuration file, or just
+deal with the state file locally.
+
 Bugs and Feature Requests
 -------------------------
 
