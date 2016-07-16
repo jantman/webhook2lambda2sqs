@@ -298,6 +298,7 @@ class TestRunner(object):
     def test_parse_args_stream_tf(self):
         res = parse_args(['-s', 'plan'])
         assert res.stream_tf is True
+        assert res.tf_path == 'terraform'
 
     def test_parse_args_version(self, capsys):
         with pytest.raises(SystemExit) as excinfo:
