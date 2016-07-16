@@ -34,40 +34,26 @@ AUTHORS:
 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
+import sys
+import logging
+import pytest
 
-import webhook2lambda2sqs.version as version
+from webhook2lambda2sqs.func_generator import LambdaFuncGenerator
 
-import re
+# https://code.google.com/p/mock/issues/detail?id=249
+# py>=3.4 should use unittest.mock not the mock package on pypi
+if (
+        sys.version_info[0] < 3 or
+        sys.version_info[0] == 3 and sys.version_info[1] < 4
+):
+    from mock import patch, call, Mock, DEFAULT  # noqa
+else:
+    from unittest.mock import patch, call, Mock, DEFAULT  # noqa
+
+pbm = 'webhook2lambda2sqs.config'
 
 
-class TestVersion(object):
+class TestLambdaFuncGenerator(object):
 
-    def test_project_url(self):
-        expected = 'https://github.com/jantman/webhook2lambda2sqs'
-        assert version.PROJECT_URL == expected
-
-    def test_is_semver(self):
-        # see:
-        # https://github.com/mojombo/semver.org/issues/59#issuecomment-57884619
-        semver_ptn = re.compile(
-            r'^'
-            r'(?P<MAJOR>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'\.'
-            r'(?P<MINOR>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'\.'
-            r'(?P<PATCH>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'(?:-(?P<prerelease>'
-            r'[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
-            r'))?'
-            r'(?:\+(?P<build>'
-            r'[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
-            r'))?'
-            r'$'
-        )
-        assert semver_ptn.match(version.VERSION) is not None
+    def test_init(self):
+        pass

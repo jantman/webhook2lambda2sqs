@@ -1,11 +1,21 @@
 webhook2lambda2sqs
-========================
+==================
 
 .. image:: https://pypip.in/v/webhook2lambda2sqs/badge.png
    :target: https://crate.io/packages/webhook2lambda2sqs
+   :alt: pypi version
 
 .. image:: https://pypip.in/d/webhook2lambda2sqs/badge.png
    :target: https://crate.io/packages/webhook2lambda2sqs
+   :alt: pypi downloads
+
+.. image:: https://img.shields.io/github/forks/jantman/webhook2lambda2sqs.svg
+   :alt: GitHub Forks
+   :target: https://github.com/jantman/webhook2lambda2sqs/network
+
+.. image:: https://img.shields.io/github/issues/jantman/webhook2lambda2sqs.svg
+   :alt: GitHub Open Issues
+   :target: https://github.com/jantman/webhook2lambda2sqs/issues
 
 .. image:: https://secure.travis-ci.org/jantman/webhook2lambda2sqs.png?branch=master
    :target: http://travis-ci.org/jantman/webhook2lambda2sqs
@@ -15,6 +25,10 @@ webhook2lambda2sqs
    :target: https://codecov.io/github/jantman/webhook2lambda2sqs?branch=master
    :alt: coverage report for master branch
 
+.. image:: https://readthedocs.org/projects/webhook2lambda2sqs/badge/?version=latest
+   :target: https://readthedocs.org/projects/webhook2lambda2sqs/?badge=latest
+   :alt: sphinx documentation for latest release
+
 .. image:: http://www.repostatus.org/badges/latest/wip.svg
    :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
    :target: http://www.repostatus.org/#wip
@@ -22,8 +36,7 @@ webhook2lambda2sqs
 Generate code and manage infrastructure for receiving webhooks with AWS API Gateway and pushing to SQS via Lambda.
 
 Webhooks are great, and many projects and services are now offering them as a notification option. But sometimes
-it makes more sense to have the messages in a queue that can absorb changes in rate and de-couple the sending
- service from a potentially slow or unavailable backend.
+it makes more sense to have the messages in a queue that can absorb changes in rate and de-couple the sending service from a potentially slow or unavailable backend.
 
 webhook2lambda2sqs generates code for an `AWS Lambda <https://aws.amazon.com/lambda/>`_ function
 to receive webhook content via `API Gateway <https://aws.amazon.com/api-gateway/>`_ and push it
@@ -85,7 +98,10 @@ Configuration
 
 webhook2lambda2sqs is configured via a JSON configuration file, which defines both
 settings for Terraform to manage the infrastructure, as well as the mapping of API
-Gateway URL paths to SQS queues.
+Gateway URL paths to SQS queues. You can view a sample configuration file as well
+as documentation on the various fields with ``webhook2lambda2sqs example-config``;
+the config file example will be written to STDOUT (so it may be redirected to a
+file) and the documentation will be written to STDERR.
 
 Usage
 -----
@@ -94,6 +110,11 @@ Generating Code and Infrastructure Configuration
 ++++++++++++++++++++++++++++++++++++++++++++++++
 
 Something else here.
+
+**Note** that the generated Terraform is a single file and does not make use of
+variables. As Terraform doesn't support iteration or conditionals, it's really
+required that we generate the important parts of the configuration programmatically,
+so there's little use in ``tfvars``.
 
 Managing Infrastructure
 +++++++++++++++++++++++

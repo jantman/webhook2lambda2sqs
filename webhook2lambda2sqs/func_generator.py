@@ -35,39 +35,27 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 
-import webhook2lambda2sqs.version as version
+import logging
 
-import re
+logger = logging.getLogger(__name__)
 
 
-class TestVersion(object):
+class LambdaFuncGenerator(object):
 
-    def test_project_url(self):
-        expected = 'https://github.com/jantman/webhook2lambda2sqs'
-        assert version.PROJECT_URL == expected
+    def __init__(self, config):
+        """
+        Initialize the Lambda function code generator.
 
-    def test_is_semver(self):
-        # see:
-        # https://github.com/mojombo/semver.org/issues/59#issuecomment-57884619
-        semver_ptn = re.compile(
-            r'^'
-            r'(?P<MAJOR>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'\.'
-            r'(?P<MINOR>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'\.'
-            r'(?P<PATCH>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'(?:-(?P<prerelease>'
-            r'[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
-            r'))?'
-            r'(?:\+(?P<build>'
-            r'[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
-            r'))?'
-            r'$'
-        )
-        assert semver_ptn.match(version.VERSION) is not None
+        :param config: program configuration
+        :type config: :py:class:`~.Config`
+        """
+        self.config = config
+
+    def generate(self):
+        """
+        Generate Lambda function source; return it as a string.
+
+        :rtype: str
+        :returns: lambda function source
+        """
+        return ''

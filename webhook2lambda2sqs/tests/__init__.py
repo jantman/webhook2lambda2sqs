@@ -2,7 +2,7 @@
 The latest version of this package is available at:
 <http://github.com/jantman/webhook2lambda2sqs>
 
-##################################################################################
+################################################################################
 Copyright 2016 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
     This file is part of webhook2lambda2sqs, also known as webhook2lambda2sqs.
@@ -23,14 +23,14 @@ Copyright 2016 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 The Copyright and Authors attributions contained herein may not be removed or
 otherwise altered, except to add the Author attribution of a contributor to
 this work. (Additional Terms pursuant to Section 7b of the AGPL v3)
-##################################################################################
+################################################################################
 While not legally required, I sincerely request that anyone who finds
 bugs please submit them at <https://github.com/jantman/webhook2lambda2sqs> or
 to me via email, and that you send any contributions or improvements
 either as a pull request on GitHub, or to me via email.
-##################################################################################
+################################################################################
 
 AUTHORS:
 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
-##################################################################################
+################################################################################
 """

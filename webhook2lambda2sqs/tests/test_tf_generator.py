@@ -2,13 +2,13 @@
 The latest version of this package is available at:
 <http://github.com/jantman/webhook2lambda2sqs>
 
-##################################################################################
+################################################################################
 Copyright 2016 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
     This file is part of webhook2lambda2sqs, also known as webhook2lambda2sqs.
 
     webhook2lambda2sqs is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
+    it under the terms of the GNU Affero General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
@@ -23,52 +23,37 @@ Copyright 2016 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 The Copyright and Authors attributions contained herein may not be removed or
 otherwise altered, except to add the Author attribution of a contributor to
 this work. (Additional Terms pursuant to Section 7b of the AGPL v3)
-##################################################################################
+################################################################################
 While not legally required, I sincerely request that anyone who finds
 bugs please submit them at <https://github.com/jantman/webhook2lambda2sqs> or
 to me via email, and that you send any contributions or improvements
 either as a pull request on GitHub, or to me via email.
-##################################################################################
+################################################################################
 
 AUTHORS:
 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
-##################################################################################
+################################################################################
 """
-
-import webhook2lambda2sqs.version as version
-
-import re
 import sys
+import logging
+import pytest
+
+from webhook2lambda2sqs.tf_generator import TerraformGenerator
+
+# https://code.google.com/p/mock/issues/detail?id=249
+# py>=3.4 should use unittest.mock not the mock package on pypi
+if (
+        sys.version_info[0] < 3 or
+        sys.version_info[0] == 3 and sys.version_info[1] < 4
+):
+    from mock import patch, call, Mock, DEFAULT  # noqa
+else:
+    from unittest.mock import patch, call, Mock, DEFAULT  # noqa
+
+pbm = 'webhook2lambda2sqs.tf_generator'
 
 
-class TestVersion(object):
+class TestTerraformGenerator(object):
 
-    def test_project_url(self):
-        expected = 'https://github.com/jantman/webhook2lambda2sqs'
-        assert version.PROJECT_URL == expected
-
-    def test_is_semver(self):
-        # see:
-        # https://github.com/mojombo/semver.org/issues/59#issuecomment-57884619
-        semver_ptn = re.compile(
-            r'^'
-            r'(?P<MAJOR>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'\.'
-            r'(?P<MINOR>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'\.'
-            r'(?P<PATCH>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'(?:-(?P<prerelease>'
-            r'[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
-            r'))?'
-            r'(?:\+(?P<build>'
-            r'[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
-            r'))?'
-            r'$'
-        )
-        assert semver_ptn.match(version.VERSION) is not None
+    def test_init(self):
+        pass

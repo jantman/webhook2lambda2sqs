@@ -35,39 +35,49 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 
-import webhook2lambda2sqs.version as version
+import json
+import logging
+import subprocess
+import sys
 
-import re
+logger = logging.getLogger(__name__)
 
 
-class TestVersion(object):
+def pretty_json(obj):
+    """
+    Given an object, return a pretty-printed JSON representation of it.
 
-    def test_project_url(self):
-        expected = 'https://github.com/jantman/webhook2lambda2sqs'
-        assert version.PROJECT_URL == expected
+    :param obj: input object
+    :type obj: object
+    :return: pretty-printed JSON representation
+    :rtype: str
+    """
+    return json.dumps(obj, sort_keys=True, indent=4)
 
-    def test_is_semver(self):
-        # see:
-        # https://github.com/mojombo/semver.org/issues/59#issuecomment-57884619
-        semver_ptn = re.compile(
-            r'^'
-            r'(?P<MAJOR>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'\.'
-            r'(?P<MINOR>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'\.'
-            r'(?P<PATCH>(?:'
-            r'0|(?:[1-9]\d*)'
-            r'))'
-            r'(?:-(?P<prerelease>'
-            r'[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
-            r'))?'
-            r'(?:\+(?P<build>'
-            r'[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
-            r'))?'
-            r'$'
-        )
-        assert semver_ptn.match(version.VERSION) is not None
+
+def run_cmd(args, stream=False):
+    """
+    Execute a command via :py:class:`subprocess.Popen`; return its output
+    (string, combined STDOUT and STDERR) and exit code (int). If stream is True,
+    also stream the output to STDOUT in realtime.
+
+    :param args: the command to run and arguments
+    :type args: list
+    :return: 2-tuple of (combined output (str), return code (int))
+    :rtype: tuple
+    """
+    s = ''
+    if stream:
+        s = ' and streaming output'
+    logger.info('Running command%s: %s', s, args)
+    outbuf = ''
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    logger.debug('Started process; pid=%s', p.pid)
+    for c in iter(lambda: p.stdout.read(1), ''):
+        outbuf += c
+        if stream:
+            sys.stdout.write(c)
+    p.poll()  # set returncode
+    logger.info('Command exited with code %d', p.returncode)
+    logger.debug("Command output:\n%s", outbuf)
+    return outbuf, p.returncode

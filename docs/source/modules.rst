@@ -1,5 +1,5 @@
 webhook2lambda2sqs
-===============
+==================
 
 .. toctree::
    :maxdepth: 4
