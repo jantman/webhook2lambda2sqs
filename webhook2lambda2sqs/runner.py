@@ -73,7 +73,8 @@ def parse_args(argv):
                    default=0,
                    help='verbose output. specify twice for debug-level output.')
     p.add_argument('-t', '--terraform-path', dest='tf_path', action='store',
-                   type=str, help='path to terraform binary, if not in PATH')
+                   type=str, help='path to terraform binary, if not in PATH',
+                   default='terraform')
     p.add_argument('-s', '--stream-tf', dest='stream_tf', action='store_true',
                    default=False, help='stream Terraform output to STDOUT ('
                                        'combined) in realtime')
