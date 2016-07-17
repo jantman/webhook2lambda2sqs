@@ -51,6 +51,16 @@ FORMAT = "[%(asctime)s %(levelname)s] %(message)s"
 logging.basicConfig(level=logging.WARNING, format=FORMAT)
 logger = logging.getLogger()
 
+# suppress boto3 internal logging below WARNING level
+boto3_log = logging.getLogger("boto3")
+boto3_log.setLevel(logging.WARNING)
+boto3_log.propagate = True
+
+# suppress botocore internal logging below WARNING level
+botocore_log = logging.getLogger("botocore")
+botocore_log.setLevel(logging.WARNING)
+botocore_log.propagate = True
+
 
 def parse_args(argv):
     """

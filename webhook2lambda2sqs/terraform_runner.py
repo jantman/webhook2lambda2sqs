@@ -92,7 +92,7 @@ class TerraformRunner(object):
         if conf is None:
             return None
         args = ['-backend=%s' % conf['backend']]
-        for k, v in conf['config'].items():
+        for k, v in sorted(conf['config'].items()):
             args.append('-backend-config="%s=%s"' % (k, v))
         return args
 

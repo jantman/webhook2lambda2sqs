@@ -80,7 +80,7 @@ class TestTerraformGenerator(object):
                 'aws': {}
             },
             'resource': {},
-            'outputs': {}
+            'output': {}
         }
         assert cls.resource_name == 'webhook2lambda2sqs'
 
@@ -99,7 +99,7 @@ class TestTerraformGenerator(object):
                 'aws': {}
             },
             'resource': {},
-            'outputs': {}
+            'output': {}
         }
         assert cls.resource_name == 'webhook2lambda2sqs-foo'
 
@@ -168,6 +168,7 @@ class TestTerraformGenerator(object):
                 autospec=True,
                 _generate_lambda=DEFAULT,
                 _generate_iam_role=DEFAULT,
+                _set_account_info=DEFAULT,
             ) as mocks:
                 mock_json.return_value = 'my_json_str'
                 res = self.cls._get_config('funcsrc')
@@ -176,4 +177,5 @@ class TestTerraformGenerator(object):
             call(self.cls, 'funcsrc')
         ]
         assert mocks['_generate_iam_role'].mock_calls == [call(self.cls)]
+        assert mocks['_set_account_info'].mock_calls == [call(self.cls)]
         assert res == 'my_json_str'

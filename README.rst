@@ -153,6 +153,21 @@ Example output of the ``example-config`` action::
 Usage
 -----
 
+Required IAM Permissions For Code Generation
+++++++++++++++++++++++++++++++++++++++++++++
+
+Generating the Terraform configuration files requires the ``iam::GetUser``
+permission for the user you're running it as. This is required to determine
+your AWS account ID, which is needed in the IAM policy. In addition, the region
+that you connect with will be included in the policy.
+
+Required IAM Permissions For Infrastructure Management
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Managing the infrastructure via Terraform requires the following IAM permissions:
+
+- foo
+
 Generating Code and Infrastructure Configuration
 ++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -167,6 +182,10 @@ Managing Infrastructure
 +++++++++++++++++++++++
 
 Something else here.
+
+You'll want to have the ``AWS_DEFAULT_REGION`` environment variable set. AWS
+credentials are managed however you want per `terraform's documentation <https://www.terraform.io/docs/providers/aws/index.html>`_, i.e. environment variables, shared credentials
+file or using an instance profile/role on an EC2 instance.
 
 **Important Note:** Unlike CloudFormation, Terraform relies on storing the
 `state <https://www.terraform.io/docs/state/index.html>`_ of your managed infrastructure

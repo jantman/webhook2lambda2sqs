@@ -58,9 +58,13 @@ class LambdaFuncGenerator(object):
         :rtype: str
         :returns: lambda function source
         """
-        return """
 
-import logging
+        # @TODO - make the source a real module, with
+        #    endpoint_config = {}
+        # on a line. To generate, read the module source/file,
+        # then replace the endpoint_config line with the actual config. Look
+        # into the safe way to generate Python code for a dict.
+        return """import logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
@@ -72,5 +76,4 @@ def webhook2lambda2sqs_handler(event, context):
         logger.debug('Context: %s', vars(context))
     except:
         logger.error('Error dumping context vars', excinfo=1)
-
-        """
+"""

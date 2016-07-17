@@ -38,6 +38,9 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import logging
 import json
 import zipfile
+from boto3 import client
+from datetime import datetime
+import os
 
 from webhook2lambda2sqs.version import VERSION, PROJECT_URL
 from webhook2lambda2sqs.utils import pretty_json
@@ -60,11 +63,13 @@ class TerraformGenerator(object):
                 'aws': {}
             },
             'resource': {},
-            'outputs': {}
+            'output': {}
         }
         self.resource_name = 'webhook2lambda2sqs'
         if config.get('name_suffix') is not None:
             self.resource_name += config.get('name_suffix')
+        self.aws_account_id = None
+        self.aws_region = None
 
     def _get_tags(self):
         """
@@ -87,18 +92,16 @@ class TerraformGenerator(object):
         """
         Generate the policy for the IAM Role. Used by
         :py:meth:`~._generate_iam_role`.
-        :return: IAM role policy JSON string
-        :rtype: str
         """
-        # from:
-        # http://docs.aws.amazon.com/lambda/latest/dg/policy-templates.html
         pol = {
             "Version": "2012-10-17",
             "Statement": [
                 {
                     "Effect": "Allow",
                     "Action": "logs:CreateLogGroup",
-                    "Resource": "arn:aws:logs:region:accountId:*"
+                    "Resource": "arn:aws:logs:%s:%s:*" % (
+                        self.aws_region, self.aws_account_id
+                    )
                 },
                 {
                     "Effect": "Allow",
@@ -107,14 +110,26 @@ class TerraformGenerator(object):
                         "logs:PutLogEvents"
                     ],
                     "Resource": [
-                        "arn:aws:logs:region:accountId:log-group:"
-                        "[[logGroups]]:*"
+                        "arn:aws:logs:%s:%s:log-group:[[logGroups]]:*" % (
+                            self.aws_region, self.aws_account_id
+                        )
                     ]
                 }
             ]
         }
-        # from:
-        # https://www.terraform.io/docs/providers/aws/r/lambda_function.html
+        if 'aws_iam_role_policy' not in self.tf_conf['resource']:
+            self.tf_conf['resource']['aws_iam_role_policy'] = {}
+        self.tf_conf['resource']['aws_iam_role_policy']['role_policy'] = {
+            'name': self.resource_name,
+            'role': '${aws_iam_role.lambda_role.id}',
+            'policy': json.dumps(pol)
+        }
+
+    def _generate_iam_role(self):
+        """
+        Generate the IAM Role needed by the Lambda function and add to
+        self.tf_conf
+        """
         pol = {
             "Version": "2012-10-17",
             "Statement": [
@@ -125,31 +140,23 @@ class TerraformGenerator(object):
                     },
                     "Effect": "Allow",
                     "Sid": ""
-                },
-                {
-
                 }
             ]
         }
-        return json.dumps(pol)
 
-    def _generate_iam_role(self):
-        """
-        Generate the IAM Role needed by the Lambda function and add to
-        self.tf_conf
-        """
         if 'aws_iam_role' not in self.tf_conf['resource']:
             self.tf_conf['resource']['aws_iam_role'] = {}
         self.tf_conf['resource']['aws_iam_role']['lambda_role'] = {
             'name': self.resource_name,
-            'assume_role_policy': self._generate_iam_role_policy(),
+            'assume_role_policy': json.dumps(pol),
         }
-        self.tf_conf['outputs']['iam_role_arn'] = {
+        self.tf_conf['output']['iam_role_arn'] = {
             'value': '${aws_iam_role.lambda_role.arn}'
         }
-        self.tf_conf['outputs']['iam_role_unique_id'] = {
+        self.tf_conf['output']['iam_role_unique_id'] = {
             'value': '${aws_iam_role.lambda_role.unique_id}'
         }
+        self._generate_iam_role_policy()
 
     def _generate_lambda(self, func_src):
         """
@@ -169,9 +176,33 @@ class TerraformGenerator(object):
             'runtime': 'python2.7',
             'timeout': 120
         }
-        self.tf_conf['outputs']['lambda_func_arn'] = {
+        self.tf_conf['output']['lambda_func_arn'] = {
             'value': '${aws_lambda_function.lambda_func.arn}'
         }
+
+    def _set_account_info(self):
+        """
+        Connect to the AWS IAM API via boto3 and run the GetUser operation
+        on the current user. Use this to set ``self.aws_account_id`` and
+        ``self.aws_region``.
+        """
+        if 'AWS_DEFAULT_REGION' in os.environ:
+            logger.debug('Connecting to IAM with region_name=%s',
+                         os.environ['AWS_DEFAULT_REGION'])
+            conn = client('iam', region_name=os.environ['AWS_DEFAULT_REGION'])
+        elif 'AWS_REGION' in os.environ:
+            logger.debug('Connecting to IAM with region_name=%s',
+                         os.environ['AWS_REGION'])
+            conn = client('iam', region_name=os.environ['AWS_REGION'])
+        else:
+            logger.debug('Connecting to IAM without specified region')
+            conn = client('iam')
+        self.aws_account_id = conn.get_user()['User']['Arn'].split(':')[4]
+        # region
+        conn = client('lambda')
+        self.aws_region = conn._client_config.region_name
+        logger.info('Found AWS account ID as %s; region: %s',
+                    self.aws_account_id, self.aws_region)
 
     def _get_config(self, func_src):
         """
@@ -182,6 +213,7 @@ class TerraformGenerator(object):
         :return: terraform configuration
         :rtype: str
         """
+        self._set_account_info()
         self._generate_iam_role()
         self._generate_lambda(func_src)
         return pretty_json(self.tf_conf)
@@ -191,13 +223,34 @@ class TerraformGenerator(object):
         Write the function source to a zip file, suitable for upload to
         Lambda.
 
+        Note there's a bit of undocumented magic going on here; Lambda needs
+        the execute bit set on the module with the handler in it (i.e. 0755
+        or 0555 permissions). There doesn't seem to be *any* documentation on
+        how to do this in the Python docs. The only real hint comes from the
+        source code of :py:meth:`zipfile.ZipInfo.from_file`, which includes:
+
+            st = os.stat(filename)
+            ...
+            zinfo.external_attr = (st.st_mode & 0xFFFF) << 16  # Unix attributes
+
         :param func_src: lambda function source
         :type func_src: str
         :param fpath: path to write the zip file at
         :type fpath: str
         """
+        # get timestamp for file
+        now = datetime.now()
+        zi_tup = (now.year, now.month, now.day, now.hour, now.minute,
+                  now.second)
+        logger.debug('setting zipinfo date to: %s', zi_tup)
+        # create a ZipInfo so we can set file attributes/mode
+        zinfo = zipfile.ZipInfo('webhook2lambda2sqs_func.py', zi_tup)
+        # set file mode
+        zinfo.external_attr = 0755 << 16
+        logger.debug('setting zipinfo file mode to: %s', zinfo.external_attr)
+        logger.debug('writing zip file at: %s', fpath)
         with zipfile.ZipFile(fpath, 'w') as z:
-            z.writestr('webhook2lambda2sqs_func.py', func_src)
+            z.writestr(zinfo, func_src)
 
     def generate(self, func_src):
         """

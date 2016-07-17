@@ -107,8 +107,8 @@ class TestTerraformRunner(object):
             cls = TerraformRunner(conf, 'tfpath')
         assert cls._args_for_remote() == [
             '-backend=consul',
-            '-backend-config="path=consul/path"',
-            '-backend-config="address=foo:1234"'
+            '-backend-config="address=foo:1234"',
+            '-backend-config="path=consul/path"'
         ]
 
     def test_set_remote_none(self):
