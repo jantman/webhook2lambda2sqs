@@ -35,6 +35,9 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 import sys
+import json
+from freezegun import freeze_time
+from zipfile import ZipInfo
 
 from webhook2lambda2sqs.tf_generator import TerraformGenerator
 from webhook2lambda2sqs.version import VERSION, PROJECT_URL
@@ -45,9 +48,10 @@ if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock, DEFAULT, mock_open  # noqa
+    from mock import patch, call, Mock, DEFAULT, mock_open, PropertyMock  # noqa
 else:
-    from unittest.mock import patch, call, Mock, DEFAULT, mock_open  # noqa
+    from unittest.mock import (patch, call, Mock, DEFAULT,  # noqa
+                               mock_open, PropertyMock)  # noqa
 
 pbm = 'webhook2lambda2sqs.tf_generator'
 pb = '%s.TerraformGenerator' % pbm
@@ -63,6 +67,7 @@ class TestTerraformGenerator(object):
 
         config = Mock()
         config.get.side_effect = se_get
+        type(config).func_name = 'webhook2lambda2sqs'
         self.cls = TerraformGenerator(config)
 
     def test_init(self):
@@ -73,6 +78,7 @@ class TestTerraformGenerator(object):
 
         config = Mock()
         config.get.side_effect = se_get
+        type(config).func_name = 'foobar'
         cls = TerraformGenerator(config)
         assert cls.config == config
         assert cls.tf_conf == {
@@ -82,26 +88,7 @@ class TestTerraformGenerator(object):
             'resource': {},
             'output': {}
         }
-        assert cls.resource_name == 'webhook2lambda2sqs'
-
-    def test_init_suffix(self):
-        conf = {'name_suffix': '-foo'}
-
-        def se_get(k):
-            return conf.get(k, None)
-
-        config = Mock()
-        config.get.side_effect = se_get
-        cls = TerraformGenerator(config)
-        assert cls.config == config
-        assert cls.tf_conf == {
-            'provider': {
-                'aws': {}
-            },
-            'resource': {},
-            'output': {}
-        }
-        assert cls.resource_name == 'webhook2lambda2sqs-foo'
+        assert cls.resource_name == 'foobar'
 
     def test_get_tags_none(self):
         res = self.cls._get_tags()
@@ -125,6 +112,203 @@ class TestTerraformGenerator(object):
             'foo': 'bar',
             'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
         }
+
+    def test_generate_iam_role_policy(self):
+        self.cls.aws_region = 'myregion'
+        self.cls.aws_account_id = '1234'
+        self.cls.resource_name = 'abc'
+        assert self.cls.tf_conf['resource'] == {}
+        self.cls._generate_iam_role_policy()
+        assert 'aws_iam_role_policy' in self.cls.tf_conf['resource']
+        assert 'role_policy' in self.cls.tf_conf['resource'][
+            'aws_iam_role_policy']
+        pol = self.cls.tf_conf['resource']['aws_iam_role_policy']['role_policy']
+        assert sorted(pol.keys()) == ['name', 'policy', 'role']
+        assert pol['name'] == 'abc'
+        assert pol['role'] == '${aws_iam_role.lambda_role.id}'
+        expected_pol = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "logs:CreateLogGroup",
+                    "Resource": "arn:aws:logs:myregion:1234:*"
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents"
+                    ],
+                    "Resource": [
+                        "arn:aws:logs:myregion:1234:log-group:/aws/lambda/abc:*"
+                    ]
+                }
+            ]
+        }
+        assert json.loads(pol['policy']) == expected_pol
+
+    def test_generate_iam_role(self):
+        assert self.cls.tf_conf['resource'] == {}
+        self.cls.resource_name = 'abc'
+        with patch('%s._generate_iam_role_policy' % pb, autospec=True) as mrp:
+            self.cls._generate_iam_role()
+        assert 'aws_iam_role' in self.cls.tf_conf['resource']
+        assert 'lambda_role' in self.cls.tf_conf['resource']['aws_iam_role']
+        role = self.cls.tf_conf['resource']['aws_iam_role']['lambda_role']
+        assert sorted(role.keys()) == ['assume_role_policy', 'name']
+        assert role['name'] == 'abc'
+        assert json.loads(role['assume_role_policy']) == {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Effect": "Allow",
+                    "Sid": ""
+                }
+            ]
+        }
+        assert self.cls.tf_conf['output']['iam_role_arn'] == {
+            'value': '${aws_iam_role.lambda_role.arn}'
+        }
+        assert self.cls.tf_conf['output']['iam_role_unique_id'] == {
+            'value': '${aws_iam_role.lambda_role.unique_id}'
+        }
+        assert mrp.mock_calls == [call(self.cls)]
+
+    def test_generate_lambda(self):
+        assert self.cls.tf_conf['resource'] == {}
+        self.cls.resource_name = 'abc'
+        self.cls._generate_lambda()
+        f = self.cls.tf_conf['resource']['aws_lambda_function']['lambda_func']
+        assert f == {
+            'filename': 'webhook2lambda2sqs_func.zip',
+            'function_name': 'abc',
+            'role': '${aws_iam_role.lambda_role.arn}',
+            'handler': 'webhook2lambda2sqs_func.webhook2lambda2sqs_handler',
+            'source_code_hash': '${base64sha256(file('
+                                '"webhook2lambda2sqs_func.zip"))}',
+            'description': 'push webhook contents to SQS - generated and '
+                           'managed by %s v%s' % (PROJECT_URL, VERSION),
+            'runtime': 'python2.7',
+            'timeout': 120
+        }
+        assert self.cls.tf_conf['output']['lambda_func_arn'] == {
+            'value': '${aws_lambda_function.lambda_func.arn}'
+        }
+
+    def test_set_account_info_env_default(self):
+        assert self.cls.aws_account_id is None
+        assert self.cls.aws_region is None
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s.client' % pbm, autospec=True) as mock_client:
+                mock_client.return_value.get_user.return_value = {
+                    'User': {'Arn': 'arn:aws:iam::123456789:user/foo'}
+                }
+                type(mock_client.return_value)._client_config = Mock(
+                    region_name='myregion')
+                with patch.dict(
+                        '%s.os.environ' % pbm,
+                        {'AWS_DEFAULT_REGION': 'adr'},
+                        clear=True):
+                    self.cls._set_account_info()
+        assert self.cls.aws_account_id == '123456789'
+        assert self.cls.aws_region == 'myregion'
+        assert mock_client.mock_calls == [
+            call('iam', region_name='adr'),
+            call().get_user(),
+            call('lambda', region_name='adr')
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('Connecting to IAM with region_name=%s', 'adr'),
+            call.info('Found AWS account ID as %s; region: %s',
+                      '123456789', 'myregion')
+        ]
+
+    def test_set_account_info_env(self):
+        assert self.cls.aws_account_id is None
+        assert self.cls.aws_region is None
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s.client' % pbm, autospec=True) as mock_client:
+                mock_client.return_value.get_user.return_value = {
+                    'User': {'Arn': 'arn:aws:iam::123456789:user/foo'}
+                }
+                type(mock_client.return_value)._client_config = Mock(
+                    region_name='myregion')
+                with patch.dict(
+                        '%s.os.environ' % pbm,
+                        {'AWS_REGION': 'ar'},
+                        clear=True):
+                    self.cls._set_account_info()
+        assert self.cls.aws_account_id == '123456789'
+        assert self.cls.aws_region == 'myregion'
+        assert mock_client.mock_calls == [
+            call('iam', region_name='ar'),
+            call().get_user(),
+            call('lambda', region_name='ar')
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('Connecting to IAM with region_name=%s', 'ar'),
+            call.info('Found AWS account ID as %s; region: %s',
+                      '123456789', 'myregion')
+        ]
+
+    def test_set_account_info_no_env(self):
+        assert self.cls.aws_account_id is None
+        assert self.cls.aws_region is None
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s.client' % pbm, autospec=True) as mock_client:
+                mock_client.return_value.get_user.return_value = {
+                    'User': {'Arn': 'arn:aws:iam::123456789:user/foo'}
+                }
+                type(mock_client.return_value)._client_config = Mock(
+                    region_name='myregion')
+                with patch.dict('%s.os.environ' % pbm, {}, clear=True):
+                    self.cls._set_account_info()
+        assert self.cls.aws_account_id == '123456789'
+        assert self.cls.aws_region == 'myregion'
+        assert mock_client.mock_calls == [
+            call('iam'),
+            call().get_user(),
+            call('lambda')
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('Connecting to IAM without specified region'),
+            call.info('Found AWS account ID as %s; region: %s',
+                      '123456789', 'myregion')
+        ]
+
+    @freeze_time("2016-07-01 02:03:04")
+    def test_write_zip(self):
+        with patch('%s.zipfile.ZipFile' % pbm, autospec=True) as mock_zf:
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                self.cls._write_zip('myfsrc', 'mypath.zip')
+        # the only way I can find to capture attributes being set on the ZipInfo
+        # is to not mock it, but use a real ZipInfo object. Unfortunately, that
+        # makes assertin on calls a bit more difficult...
+        assert len(mock_zf.mock_calls) == 4
+        assert mock_zf.mock_calls[0] == call('mypath.zip', 'w')
+        assert mock_zf.mock_calls[1] == call().__enter__()
+        assert mock_zf.mock_calls[3] == call().__exit__(None, None, None)
+        # ok, now handle the second call, which should have the ZipInfo
+        # as its first argument...
+        # test that it's the right chained method call
+        assert mock_zf.mock_calls[2][0] == '().__enter__().writestr'
+        # test its arguments
+        arg_tup = mock_zf.mock_calls[2][1]
+        assert isinstance(arg_tup[0], ZipInfo)
+        assert arg_tup[0].filename == 'webhook2lambda2sqs_func.py'
+        assert arg_tup[0].date_time == (2016, 7, 1, 2, 3, 4)
+        assert arg_tup[0].external_attr == 0755 << 16
+        assert arg_tup[1] == 'myfsrc'
+        assert mock_logger.mock_calls == [
+            call.debug('setting zipinfo date to: %s', (2016, 7, 1, 2, 3, 4)),
+            call.debug('setting zipinfo file mode to: %s', (0755 << 16)),
+            call.debug('writing zip file at: %s', 'mypath.zip')
+        ]
 
     def test_generate(self):
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
@@ -173,9 +357,7 @@ class TestTerraformGenerator(object):
                 mock_json.return_value = 'my_json_str'
                 res = self.cls._get_config('funcsrc')
         assert mock_json.mock_calls == [call({'foo': 'bar'})]
-        assert mocks['_generate_lambda'].mock_calls == [
-            call(self.cls, 'funcsrc')
-        ]
+        assert mocks['_generate_lambda'].mock_calls == [call(self.cls)]
         assert mocks['_generate_iam_role'].mock_calls == [call(self.cls)]
         assert mocks['_set_account_info'].mock_calls == [call(self.cls)]
         assert res == 'my_json_str'

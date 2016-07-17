@@ -34,9 +34,10 @@ AUTHORS:
 Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
+
 import sys
 
-from webhook2lambda2sqs.config import Config
+from webhook2lambda2sqs.aws import AWSInfo
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -44,62 +45,65 @@ if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock, DEFAULT, mock_open  # noqa
+    from mock import patch, call, Mock, DEFAULT  # noqa
 else:
-    from unittest.mock import patch, call, Mock, DEFAULT, mock_open  # noqa
+    from unittest.mock import patch, call, Mock, DEFAULT  # noqa
 
-pbm = 'webhook2lambda2sqs.config'
-pb = '%s.Config' % pbm
+pbm = 'webhook2lambda2sqs.aws'
+pb = '%s.AWSInfo' % pbm
 
 
-class TestConfig(object):
+class TestAWSInfo(object):
 
     def setup(self):
-        with patch('%s._load_config' % pb, autospec=True) as mock_load:
-            mock_load.return_value = {'my': 'config'}
-            self.cls = Config('confpath')
+        self.conf = {}
+
+        def se_get(k):
+            return self.conf.get(k, None)
+
+        config = Mock()
+        config.get.side_effect = se_get
+        type(config).func_name = 'myfname'
+        self.cls = AWSInfo(config)
 
     def test_init(self):
-        with patch('%s._load_config' % pb, autospec=True) as mock_load:
-            mock_load.return_value = {'my': 'config'}
-            cls = Config('mypath')
-        assert cls.path == 'mypath'
-        assert cls._config == {'my': 'config'}
-        assert mock_load.mock_calls == [
-            call(cls, 'mypath')
-        ]
+        c = Mock()
+        cls = AWSInfo(c)
+        assert cls.config == c
 
-    def test_load_config(self):
-        with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:
-            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
-                mock_read.return_value = {'foo': 'bar'}
-                res = self.cls._load_config('/my/path')
-        assert res == {'foo': 'bar'}
-        assert mock_read.mock_calls == [call('/my/path')]
+    def test_show_cloudwatch_logs(self, capsys):
+        resp = {
+            'logStreams': [
+                {'logStreamName': 's1'},
+                {'logStreamName': 's2'},
+                {'logStreamName': 's3'}
+            ]
+        }
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s.client' % pbm, autospec=True) as mock_conn:
+                with patch('%s._show_log_stream' % pb, autospec=True) as sls:
+                    mock_conn.return_value.describe_log_streams.return_value = \
+                        resp
+                    sls.side_effect = [1, 10]
+                    self.cls.show_cloudwatch_logs(5)
+        out, err = capsys.readouterr()
+        assert err == ''
+        assert out == ''
+        assert mock_conn.mock_calls == [
+            call('logs'),
+            call().describe_log_streams(descending=True, limit=5,
+                                        logGroupName='/aws/lambda/myfname',
+                                        orderBy='LastEventTime')
+        ]
+        assert sls.mock_calls == [
+            call(self.cls,
+                 mock_conn.return_value, '/aws/lambda/myfname', 's1', 5),
+            call(self.cls,
+                 mock_conn.return_value, '/aws/lambda/myfname', 's2', 4),
+        ]
         assert mock_logger.mock_calls == [
-            call.debug('Loading configuration from: %s', '/my/path')
+            call.debug('Log Group Name: %s', '/aws/lambda/myfname'),
+            call.debug('Connecting to AWS Logs API'),
+            call.debug('Getting log streams'),
+            call.debug('Found %d log streams', 3)
         ]
-
-    def test_example_config(self):
-        with patch('%s.pretty_json' % pbm) as mock_pretty:
-            with patch('%s.dedent' % pbm) as mock_dedent:
-                mock_pretty.return_value = 'pretty'
-                mock_dedent.return_value = 'dedent'
-                res = Config.example_config()
-        assert res == ('pretty', 'dedent')
-        assert mock_pretty.mock_calls == [call(Config._example)]
-        assert mock_dedent.mock_calls == [call(Config._example_docs)]
-
-    def test_func_name(self):
-        self.cls._config = {}
-        assert self.cls.func_name == 'webhook2lambda2sqs'
-
-    def test_func_name_suffix(self):
-        self.cls._config = {'name_suffix': 'foo'}
-        assert self.cls.func_name == 'webhook2lambda2sqsfoo'
-
-    def test_get(self):
-        self.cls._config = {'foo': 'bar', 'baz': {'blam': 'blarg'}}
-        assert self.cls.get('foo') == 'bar'
-        assert self.cls.get('baz') == {'blam': 'blarg'}
-        assert self.cls.get('badkey') is None

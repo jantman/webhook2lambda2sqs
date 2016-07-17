@@ -46,6 +46,7 @@ from webhook2lambda2sqs.config import Config
 from webhook2lambda2sqs.terraform_runner import TerraformRunner
 from webhook2lambda2sqs.tf_generator import TerraformGenerator
 from webhook2lambda2sqs.func_generator import LambdaFuncGenerator
+from webhook2lambda2sqs.aws import AWSInfo
 
 FORMAT = "[%(asctime)s %(levelname)s] %(message)s"
 logging.basicConfig(level=logging.WARNING, format=FORMAT)
@@ -105,6 +106,28 @@ def parse_args(argv):
                                         'create infrastructure')
     subparsers.add_parser('destroy', help='run terraform destroy to completely'
                                           ' destroy infrastructure')
+    logparser = subparsers.add_parser('logs', help='show last 10 CloudWatch '
+                                      'Logs entries for the function')
+    logparser.add_argument('-c', '--count', dest='log_count', type=int,
+                           default=10, help='number of log entries to show '
+                                            '(default 10')
+    queueparser = subparsers.add_parser('queuepeek', help='show messages from '
+                                        'one or all of the SQS queues')
+    queueparser.add_argument('-n', '--name', type=str, dest='queue_name',
+                             default=None, help='queue name to read (defaults '
+                                                'to None to read all)')
+    queueparser.add_argument('-d', '--delete', action='store_true',
+                             dest='queue_delete', default=False,
+                             help='delete messages after reading')
+    queueparser.add_argument('-c', '--count', dest='msg_count', type=int,
+                             default=10, help='number of messages to read '
+                                              '(default 10)')
+    testparser = subparsers.add_parser('test', help='send test message to '
+                                                    'one or more endpoints')
+    testparser.add_argument('-n', '--endpoint-name', dest='endpoint_name',
+                            type=str, default=None,
+                            help='endpoint name (default: None, to send to '
+                                 'all endpoints)')
     subparsers.add_parser(
         'example-config', help='write example config to STDOUT and description '
                                'of it to STDERR, then exit'
@@ -164,6 +187,21 @@ def main(args=None):
 
     # get our config
     config = Config(args.config)
+
+    if args.action == 'logs':
+        aws = AWSInfo(config)
+        aws.show_cloudwatch_logs(count=args.log_count)
+        return
+
+    if args.action == 'queuepeek':
+        aws = AWSInfo(config)
+        aws.show_queue(name=args.queue_name, delete=args.queue_delete,
+                       count=args.msg_count)
+        return
+
+    if args.action == 'test':
+        # @TODO - implement this
+        return
 
     # if generate or genapply, generate the configs
     if args.action == 'generate' or args.action == 'genapply':

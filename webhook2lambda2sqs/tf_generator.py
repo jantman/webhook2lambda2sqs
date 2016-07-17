@@ -65,9 +65,7 @@ class TerraformGenerator(object):
             'resource': {},
             'output': {}
         }
-        self.resource_name = 'webhook2lambda2sqs'
-        if config.get('name_suffix') is not None:
-            self.resource_name += config.get('name_suffix')
+        self.resource_name = config.func_name
         self.aws_account_id = None
         self.aws_region = None
 
@@ -110,15 +108,15 @@ class TerraformGenerator(object):
                         "logs:PutLogEvents"
                     ],
                     "Resource": [
-                        "arn:aws:logs:%s:%s:log-group:[[logGroups]]:*" % (
-                            self.aws_region, self.aws_account_id
+                        "arn:aws:logs:%s:%s:log-group:%s:*" % (
+                            self.aws_region, self.aws_account_id,
+                            '/aws/lambda/%s' % self.resource_name
                         )
                     ]
                 }
             ]
         }
-        if 'aws_iam_role_policy' not in self.tf_conf['resource']:
-            self.tf_conf['resource']['aws_iam_role_policy'] = {}
+        self.tf_conf['resource']['aws_iam_role_policy'] = {}
         self.tf_conf['resource']['aws_iam_role_policy']['role_policy'] = {
             'name': self.resource_name,
             'role': '${aws_iam_role.lambda_role.id}',
@@ -144,8 +142,7 @@ class TerraformGenerator(object):
             ]
         }
 
-        if 'aws_iam_role' not in self.tf_conf['resource']:
-            self.tf_conf['resource']['aws_iam_role'] = {}
+        self.tf_conf['resource']['aws_iam_role'] = {}
         self.tf_conf['resource']['aws_iam_role']['lambda_role'] = {
             'name': self.resource_name,
             'assume_role_policy': json.dumps(pol),
@@ -158,12 +155,11 @@ class TerraformGenerator(object):
         }
         self._generate_iam_role_policy()
 
-    def _generate_lambda(self, func_src):
+    def _generate_lambda(self):
         """
         Generate the lambda function and its IAM role, and add to self.tf_conf
         """
-        if 'aws_lambda_function' not in self.tf_conf['resource']:
-            self.tf_conf['resource']['aws_lambda_function'] = {}
+        self.tf_conf['resource']['aws_lambda_function'] = {}
         self.tf_conf['resource']['aws_lambda_function']['lambda_func'] = {
             'filename': 'webhook2lambda2sqs_func.zip',
             'function_name': self.resource_name,
@@ -189,17 +185,18 @@ class TerraformGenerator(object):
         if 'AWS_DEFAULT_REGION' in os.environ:
             logger.debug('Connecting to IAM with region_name=%s',
                          os.environ['AWS_DEFAULT_REGION'])
-            conn = client('iam', region_name=os.environ['AWS_DEFAULT_REGION'])
+            kwargs = {'region_name': os.environ['AWS_DEFAULT_REGION']}
         elif 'AWS_REGION' in os.environ:
             logger.debug('Connecting to IAM with region_name=%s',
                          os.environ['AWS_REGION'])
-            conn = client('iam', region_name=os.environ['AWS_REGION'])
+            kwargs = {'region_name': os.environ['AWS_REGION']}
         else:
             logger.debug('Connecting to IAM without specified region')
-            conn = client('iam')
+            kwargs = {}
+        conn = client('iam', **kwargs)
         self.aws_account_id = conn.get_user()['User']['Arn'].split(':')[4]
         # region
-        conn = client('lambda')
+        conn = client('lambda', **kwargs)
         self.aws_region = conn._client_config.region_name
         logger.info('Found AWS account ID as %s; region: %s',
                     self.aws_account_id, self.aws_region)
@@ -215,7 +212,7 @@ class TerraformGenerator(object):
         """
         self._set_account_info()
         self._generate_iam_role()
-        self._generate_lambda(func_src)
+        self._generate_lambda()
         return pretty_json(self.tf_conf)
 
     def _write_zip(self, func_src, fpath):

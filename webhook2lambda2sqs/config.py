@@ -125,6 +125,19 @@ class Config(object):
         logger.debug('Loading configuration from: %s', p)
         return read_json_file(p)
 
+    @property
+    def func_name(self):
+        """
+        Return what we will name our lambda function.
+
+        :return: lambda function name
+        :rtype: str
+        """
+        name = 'webhook2lambda2sqs'
+        if self.get('name_suffix') is not None:
+            name += self.get('name_suffix')
+        return name
+
     @staticmethod
     def example_config():
         """

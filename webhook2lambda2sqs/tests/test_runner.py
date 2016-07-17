@@ -67,6 +67,7 @@ class TestRunner(object):
                 pbm,
                 autospec=True,
                 Config=DEFAULT,
+                AWSInfo=DEFAULT,
                 set_log_info=DEFAULT,
                 set_log_debug=DEFAULT,
                 LambdaFuncGenerator=DEFAULT,
@@ -86,6 +87,7 @@ class TestRunner(object):
         assert mocks['TerraformGenerator'].mock_calls == []
         assert mocks['TerraformRunner'].mock_calls == []
         assert mocks['parse_args'].mock_calls == [call(['example-config'])]
+        assert mocks['AWSInfo'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_example_config(self, capsys):
@@ -100,6 +102,7 @@ class TestRunner(object):
                 pbm,
                 autospec=True,
                 Config=DEFAULT,
+                AWSInfo=DEFAULT,
                 set_log_info=DEFAULT,
                 set_log_debug=DEFAULT,
                 LambdaFuncGenerator=DEFAULT,
@@ -120,6 +123,7 @@ class TestRunner(object):
         assert mocks['TerraformGenerator'].mock_calls == []
         assert mocks['TerraformRunner'].mock_calls == []
         assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_generate_log_info(self):
@@ -133,6 +137,7 @@ class TestRunner(object):
             with patch.multiple(
                 pbm,
                 Config=DEFAULT,
+                AWSInfo=DEFAULT,
                 set_log_info=DEFAULT,
                 set_log_debug=DEFAULT,
                 LambdaFuncGenerator=DEFAULT,
@@ -157,6 +162,7 @@ class TestRunner(object):
         ]
         assert mocks['TerraformRunner'].mock_calls == []
         assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_genapply_log_debug(self):
@@ -170,6 +176,7 @@ class TestRunner(object):
             with patch.multiple(
                 pbm,
                 Config=DEFAULT,
+                AWSInfo=DEFAULT,
                 set_log_info=DEFAULT,
                 set_log_debug=DEFAULT,
                 LambdaFuncGenerator=DEFAULT,
@@ -197,6 +204,7 @@ class TestRunner(object):
             call().apply(False)
         ]
         assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_plan(self):
@@ -210,6 +218,7 @@ class TestRunner(object):
             with patch.multiple(
                 pbm,
                 Config=DEFAULT,
+                AWSInfo=DEFAULT,
                 set_log_info=DEFAULT,
                 set_log_debug=DEFAULT,
                 LambdaFuncGenerator=DEFAULT,
@@ -229,6 +238,7 @@ class TestRunner(object):
             call().plan(True)
         ]
         assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_destroy(self):
@@ -242,6 +252,7 @@ class TestRunner(object):
             with patch.multiple(
                 pbm,
                 Config=DEFAULT,
+                AWSInfo=DEFAULT,
                 set_log_info=DEFAULT,
                 set_log_debug=DEFAULT,
                 LambdaFuncGenerator=DEFAULT,
@@ -261,6 +272,75 @@ class TestRunner(object):
             call().destroy(False)
         ]
         assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == []
+        assert mocklogger.mock_calls == []
+
+    def test_main_logs(self):
+        """
+        test main function
+        """
+
+        mock_args = Mock(verbose=0, action='logs', config='cpath',
+                         log_count=4)
+        with patch('%s.logger' % pbm, autospec=True) as mocklogger:
+            with patch.multiple(
+                pbm,
+                Config=DEFAULT,
+                AWSInfo=DEFAULT,
+                set_log_info=DEFAULT,
+                set_log_debug=DEFAULT,
+                LambdaFuncGenerator=DEFAULT,
+                TerraformGenerator=DEFAULT,
+                TerraformRunner=DEFAULT,
+                parse_args=DEFAULT
+            ) as mocks:
+                mocks['Config'].example_config.return_value = 'config-ex'
+                main(mock_args)
+        assert mocks['Config'].mock_calls == [call('cpath')]
+        assert mocks['set_log_info'].mock_calls == []
+        assert mocks['set_log_debug'].mock_calls == []
+        assert mocks['LambdaFuncGenerator'].mock_calls == []
+        assert mocks['TerraformGenerator'].mock_calls == []
+        assert mocks['TerraformRunner'].mock_calls == []
+        assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == [
+            call(mocks['Config'].return_value),
+            call().show_cloudwatch_logs(count=4)
+        ]
+        assert mocklogger.mock_calls == []
+
+    def test_main_queuepeek(self):
+        """
+        test main function
+        """
+
+        mock_args = Mock(verbose=0, action='queuepeek', config='cpath',
+                         queue_name='foo', queue_delete=True, msg_count=2)
+        with patch('%s.logger' % pbm, autospec=True) as mocklogger:
+            with patch.multiple(
+                pbm,
+                Config=DEFAULT,
+                AWSInfo=DEFAULT,
+                set_log_info=DEFAULT,
+                set_log_debug=DEFAULT,
+                LambdaFuncGenerator=DEFAULT,
+                TerraformGenerator=DEFAULT,
+                TerraformRunner=DEFAULT,
+                parse_args=DEFAULT
+            ) as mocks:
+                mocks['Config'].example_config.return_value = 'config-ex'
+                main(mock_args)
+        assert mocks['Config'].mock_calls == [call('cpath')]
+        assert mocks['set_log_info'].mock_calls == []
+        assert mocks['set_log_debug'].mock_calls == []
+        assert mocks['LambdaFuncGenerator'].mock_calls == []
+        assert mocks['TerraformGenerator'].mock_calls == []
+        assert mocks['TerraformRunner'].mock_calls == []
+        assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == [
+            call(mocks['Config'].return_value),
+            call().show_queue(name='foo', delete=True, count=2)
+        ]
         assert mocklogger.mock_calls == []
 
     def test_parse_args_no_action(self, capsys):
@@ -273,10 +353,45 @@ class TestRunner(object):
 
     def test_parse_args_actions(self):
         for action in ['generate', 'plan', 'genapply',
-                       'apply', 'destroy', 'example-config']:
+                       'apply', 'destroy', 'example-config',
+                       'logs']:
             res = parse_args([action])
             assert res.action == action
             assert res.verbose == 0
+
+    def test_parse_args_logs(self):
+        res = parse_args(['logs'])
+        assert res.action == 'logs'
+        assert res.log_count == 10
+
+    def test_parse_args_logs_count(self):
+        res = parse_args(['logs', '-c', '3'])
+        assert res.action == 'logs'
+        assert res.log_count == 3
+
+    def test_parse_args_queuepeek(self):
+        res = parse_args(['queuepeek'])
+        assert res.action == 'queuepeek'
+        assert res.queue_name is None
+        assert res.queue_delete is False
+        assert res.msg_count == 10
+
+    def test_parse_args_queuepeek_non_default(self):
+        res = parse_args(['queuepeek', '--name=foo', '-d', '-c', '5'])
+        assert res.action == 'queuepeek'
+        assert res.queue_name == 'foo'
+        assert res.queue_delete is True
+        assert res.msg_count == 5
+
+    def test_parse_args_test(self):
+        res = parse_args(['test'])
+        assert res.action == 'test'
+        assert res.endpoint_name is None
+
+    def test_parse_args_test_name(self):
+        res = parse_args(['test', '-n', 'foo'])
+        assert res.action == 'test'
+        assert res.endpoint_name == 'foo'
 
     def test_parse_args_config(self):
         res = parse_args(['--config=foo', 'plan'])
