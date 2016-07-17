@@ -45,11 +45,12 @@ if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock, DEFAULT  # noqa
+    from mock import patch, call, Mock, DEFAULT, mock_open  # noqa
 else:
-    from unittest.mock import patch, call, Mock, DEFAULT  # noqa
+    from unittest.mock import patch, call, Mock, DEFAULT, mock_open  # noqa
 
 pbm = 'webhook2lambda2sqs.tf_generator'
+pb = '%s.TerraformGenerator' % pbm
 
 
 class TestTerraformGenerator(object):
@@ -65,9 +66,42 @@ class TestTerraformGenerator(object):
         self.cls = TerraformGenerator(config)
 
     def test_init(self):
+        conf = {}
+
+        def se_get(k):
+            return conf.get(k, None)
+
         config = Mock()
+        config.get.side_effect = se_get
         cls = TerraformGenerator(config)
         assert cls.config == config
+        assert cls.tf_conf == {
+            'provider': {
+                'aws': {}
+            },
+            'resource': {},
+            'outputs': {}
+        }
+        assert cls.resource_name == 'webhook2lambda2sqs'
+
+    def test_init_suffix(self):
+        conf = {'name_suffix': '-foo'}
+
+        def se_get(k):
+            return conf.get(k, None)
+
+        config = Mock()
+        config.get.side_effect = se_get
+        cls = TerraformGenerator(config)
+        assert cls.config == config
+        assert cls.tf_conf == {
+            'provider': {
+                'aws': {}
+            },
+            'resource': {},
+            'outputs': {}
+        }
+        assert cls.resource_name == 'webhook2lambda2sqs-foo'
 
     def test_get_tags_none(self):
         res = self.cls._get_tags()
@@ -91,3 +125,55 @@ class TestTerraformGenerator(object):
             'foo': 'bar',
             'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
         }
+
+    def test_generate(self):
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s._get_config' % pb, autospec=True) as mock_get:
+                with patch('%s.open' % pbm, mock_open(), create=True) as m_open:
+                    with patch('%s._write_zip' % pb, autospec=True) as mock_zip:
+                        mock_get.return_value = 'myjson'
+                        self.cls.generate('myfunc')
+        assert mock_get.mock_calls == [call(self.cls, 'myfunc')]
+        assert m_open.mock_calls == [
+            call('./webhook2lambda2sqs_func.py', 'w'),
+            call().__enter__(),
+            call().write('myfunc'),
+            call().__exit__(None, None, None),
+            call('./webhook2lambda2sqs.tf.json', 'w'),
+            call().__enter__(),
+            call().write('myjson'),
+            call().__exit__(None, None, None)
+        ]
+        assert mock_zip.mock_calls == [
+            call(self.cls, 'myfunc', './webhook2lambda2sqs_func.zip')
+        ]
+        assert mock_logger.mock_calls == [
+            call.warning('Writing lambda function source to: '
+                         './webhook2lambda2sqs_func.py'),
+            call.debug('lambda function written'),
+            call.warning('Writing lambda function source zip file to: '
+                         './webhook2lambda2sqs_func.zip'),
+            call.debug('lambda zip written'),
+            call.warning('Writing terraform configuration JSON to: '
+                         './webhook2lambda2sqs.tf.json'),
+            call.debug('terraform configuration written'),
+            call.warning('Completed writing lambda function and TF config.')
+        ]
+
+    def test_get_config(self):
+        self.cls.tf_conf = {'foo': 'bar'}
+        with patch('%s.pretty_json' % pbm, autospec=True) as mock_json:
+            with patch.multiple(
+                pb,
+                autospec=True,
+                _generate_lambda=DEFAULT,
+                _generate_iam_role=DEFAULT,
+            ) as mocks:
+                mock_json.return_value = 'my_json_str'
+                res = self.cls._get_config('funcsrc')
+        assert mock_json.mock_calls == [call({'foo': 'bar'})]
+        assert mocks['_generate_lambda'].mock_calls == [
+            call(self.cls, 'funcsrc')
+        ]
+        assert mocks['_generate_iam_role'].mock_calls == [call(self.cls)]
+        assert res == 'my_json_str'

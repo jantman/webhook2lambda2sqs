@@ -35,8 +35,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 import sys
-import logging
-import pytest
 
 from webhook2lambda2sqs.func_generator import LambdaFuncGenerator
 
@@ -56,4 +54,6 @@ pbm = 'webhook2lambda2sqs.config'
 class TestLambdaFuncGenerator(object):
 
     def test_init(self):
-        pass
+        m = Mock()
+        cls = LambdaFuncGenerator(m)
+        assert cls.config == m

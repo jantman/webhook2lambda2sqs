@@ -37,6 +37,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import logging
 from webhook2lambda2sqs.utils import run_cmd, read_json_file
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +174,17 @@ class TerraformRunner(object):
         """
         Print the terraform outputs.
         """
-        fpath = '.terraform/terraform.tfstate'
+        fpath = None
+        for p in ['.terraform/terraform.tfstate', 'terraform.tfstate']:
+            if os.path.exists(p):
+                fpath = p
+                logger.debug('Found tfstate: %s', p)
+                break
+            logger.debug('Does not exist: %s', p)
+        if fpath is None:
+            logger.error('Error: no terraform.tfstate file found; cannot show'
+                         ' terraform outputs.')
+            return
         try:
             state = read_json_file(fpath)
             logger.debug('Terraform state: %s', state)

@@ -3,7 +3,9 @@ terraform.tfstate
 terraform.tfstate.backup
 .terraform/
 webhook2lambda2sqs.tf
+webhook2lambda2sqs.tf.json
 webhook2lambda2sqs_func.py
+webhook2lambda2sqs_func.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
