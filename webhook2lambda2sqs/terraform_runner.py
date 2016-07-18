@@ -117,7 +117,8 @@ class TerraformRunner(object):
 
     def _run_tf(self, cmd, cmd_args=[], stream=False):
         """
-        Run a single terraform command; raise exception on non-zero exit status.
+        Run a single terraform command via :py:func:`~.utils.run_cmd`;
+        raise exception on non-zero exit status.
 
         :param cmd: terraform command to run
         :type cmd: str

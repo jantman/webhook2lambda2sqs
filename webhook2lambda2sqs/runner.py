@@ -83,29 +83,37 @@ def parse_args(argv):
     p.add_argument('-v', '--verbose', dest='verbose', action='count',
                    default=0,
                    help='verbose output. specify twice for debug-level output.')
-    p.add_argument('-t', '--terraform-path', dest='tf_path', action='store',
-                   type=str, help='path to terraform binary, if not in PATH',
-                   default='terraform')
-    p.add_argument('-s', '--stream-tf', dest='stream_tf', action='store_true',
-                   default=False, help='stream Terraform output to STDOUT ('
-                                       'combined) in realtime')
     p.add_argument('-V', '--version', action='version',
                    version='webhook2lambda2sqs v%s <%s>' % (
                        VERSION, PROJECT_URL
                    ))
-    subparsers = p.add_subparsers(title='Action', dest='action')
+    subparsers = p.add_subparsers(title='Action (Subcommand)', dest='action',
+                                  metavar='ACTION', description='Action to '
+                                  'perform; each action may take further '
+                                  'parameters. Use ACTION -h for subcommand-'
+                                  'specific options and arguments.')
     subparsers.add_parser(
         'generate', help='generate lambda function and terraform configs in ./'
     )
-    subparsers.add_parser('genapply', help='generate function and terraform '
-                                           'configs in ./, then run terraform '
-                                           'apply')
-    subparsers.add_parser('plan', help='run terraform plan to show changes '
-                                       'which will be made')
-    subparsers.add_parser('apply', help='run terraform apply to apply changes/'
-                                        'create infrastructure')
-    subparsers.add_parser('destroy', help='run terraform destroy to completely'
-                                          ' destroy infrastructure')
+    tf_parsers = [
+        ('genapply', 'generate function and terraform configs in ./, then run '
+                     'terraform apply'),
+        ('plan', 'run terraform plan to show changes which will be made'),
+        ('apply', 'run terraform apply to apply changes/create infrastructure'),
+        ('destroy',
+         'run terraform destroy to completely destroy infrastructure')
+    ]
+    tf_p_objs = {}
+    for cname, chelp in tf_parsers:
+        tf_p_objs[cname] = subparsers.add_parser(cname, help=chelp)
+        tf_p_objs[cname].add_argument('-t', '--terraform-path', dest='tf_path',
+                                      action='store', default='terraform',
+                                      type=str, help='path to terraform '
+                                                     'binary, if not in PATH')
+        tf_p_objs[cname].add_argument('-S', '--no-stream-tf', dest='stream_tf',
+                                      action='store_false', default=True,
+                                      help='DO NOT stream Terraform output to '
+                                           'STDOUT (combined) in realtime')
     logparser = subparsers.add_parser('logs', help='show last 10 CloudWatch '
                                       'Logs entries for the function')
     logparser.add_argument('-c', '--count', dest='log_count', type=int,

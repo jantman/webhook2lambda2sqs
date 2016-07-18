@@ -352,12 +352,27 @@ class TestRunner(object):
         assert out == ''
 
     def test_parse_args_actions(self):
-        for action in ['generate', 'plan', 'genapply',
-                       'apply', 'destroy', 'example-config',
-                       'logs']:
+        for action in ['generate', 'example-config', 'logs', 'queuepeek',
+                       'test']:
             res = parse_args([action])
             assert res.action == action
             assert res.verbose == 0
+
+    def test_parse_args_tf_actions_default(self):
+        for action in ['genapply', 'apply', 'plan', 'destroy']:
+            res = parse_args([action])
+            assert res.action == action
+            assert res.verbose == 0
+            assert res.tf_path == 'terraform'
+            assert res.stream_tf is True
+
+    def test_parse_args_tf_actions_non_default(self):
+        for action in ['genapply', 'apply', 'plan', 'destroy']:
+            res = parse_args([action, '--terraform-path=/path/to/tf', '-S'])
+            assert res.action == action
+            assert res.verbose == 0
+            assert res.tf_path == '/path/to/tf'
+            assert res.stream_tf is False
 
     def test_parse_args_logs(self):
         res = parse_args(['logs'])
@@ -404,16 +419,6 @@ class TestRunner(object):
     def test_parse_args_verbose2(self):
         res = parse_args(['-vv', 'plan'])
         assert res.verbose == 2
-
-    def test_parse_args_tf_path(self):
-        res = parse_args(['-t', 'bar', 'plan'])
-        assert res.tf_path == 'bar'
-        assert res.stream_tf is False
-
-    def test_parse_args_stream_tf(self):
-        res = parse_args(['-s', 'plan'])
-        assert res.stream_tf is True
-        assert res.tf_path == 'terraform'
 
     def test_parse_args_version(self, capsys):
         with pytest.raises(SystemExit) as excinfo:
