@@ -120,8 +120,8 @@ def parse_args(argv):
                              dest='queue_delete', default=False,
                              help='delete messages after reading')
     queueparser.add_argument('-c', '--count', dest='msg_count', type=int,
-                             default=10, help='number of messages to read '
-                                              '(default 10)')
+                             default=10, help='number of messages to read from '
+                                              'each queue (default 10)')
     testparser = subparsers.add_parser('test', help='send test message to '
                                                     'one or more endpoints')
     testparser.add_argument('-n', '--endpoint-name', dest='endpoint_name',

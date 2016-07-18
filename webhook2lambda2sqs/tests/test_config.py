@@ -35,6 +35,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 import sys
+import pytest
 
 from webhook2lambda2sqs.config import Config
 
@@ -56,18 +57,26 @@ class TestConfig(object):
 
     def setup(self):
         with patch('%s._load_config' % pb, autospec=True) as mock_load:
-            mock_load.return_value = {'my': 'config'}
+            mock_load.return_value = {'my': 'config', 'endpoints': {'a': 1}}
             self.cls = Config('confpath')
 
     def test_init(self):
         with patch('%s._load_config' % pb, autospec=True) as mock_load:
-            mock_load.return_value = {'my': 'config'}
+            mock_load.return_value = {'my': 'config', 'endpoints': {'a': 1}}
             cls = Config('mypath')
         assert cls.path == 'mypath'
-        assert cls._config == {'my': 'config'}
+        assert cls._config == {'my': 'config', 'endpoints': {'a': 1}}
         assert mock_load.mock_calls == [
             call(cls, 'mypath')
         ]
+
+    def test_init_no_endpoints(self):
+        with patch('%s._load_config' % pb, autospec=True) as mock_load:
+            mock_load.return_value = {'my': 'config'}
+            with pytest.raises(Exception) as excinfo:
+                Config('mypath')
+            assert excinfo.value.message == 'Error: configuration must have ' \
+                                            'at least 1 endpoint'
 
     def test_load_config(self):
         with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:

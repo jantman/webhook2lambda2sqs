@@ -99,6 +99,10 @@ class Config(object):
         """
         self.path = path
         self._config = self._load_config(path)
+        if 'endpoints' not in self._config or len(
+                self._config['endpoints']) < 1:
+            raise Exception(
+                'Error: configuration must have at least 1 endpoint')
 
     def get(self, key):
         """

@@ -38,6 +38,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import logging
 from boto3 import client
 from datetime import datetime
+from pprint import pprint
 
 logger = logging.getLogger(__name__)
 
@@ -103,11 +104,123 @@ class AWSInfo(object):
                 grp_name, stream_name))
         shown = 0
         for evt in events['events']:
+            if shown >= max_count:
+                break
             shown += 1
             dt = datetime.fromtimestamp(evt['timestamp'] / 1000.0)
             print("%s => %s" % (dt, evt['message'].strip()))
         logger.debug('displayed %d events from stream', shown)
         return shown
 
+    def _url_for_queue(self, conn, name):
+        """
+        Given a queue name, return the URL for it.
+
+        :param conn: SQS API connection
+        :type conn: botocore.client.SQS
+        :param name: queue name, or None for all queues in config.
+        :type name: str
+        :return: queue URL
+        :rtype: str
+        """
+        res = conn.get_queue_url(QueueName=name)
+        return res['QueueUrl']
+
+    def _delete_msg(self, conn, queue_url, receipt_handle):
+        """
+        Delete the message specified by ``receipt_handle`` in the queue
+        specified by ``queue_url``.
+
+        :param conn: SQS API connection
+        :type conn: botocore.client.SQS
+        :param queue_url: queue URL to delete the message from
+        :type queue_url: str
+        :param receipt_handle: message receipt handle
+        :type receipt_handle: str
+        """
+        resp = conn.delete_message(QueueUrl=queue_url,
+                                   ReceiptHandle=receipt_handle)
+        if resp['ResponseMetadata']['HTTPStatusCode'] != 200:
+            logger.error('Error: message with receipt handle %s in queue %s '
+                         'was not successfully deleted (HTTP %s)',
+                         receipt_handle, queue_url,
+                         resp['ResponseMetadata']['HTTPStatusCode'])
+            return
+        logger.info('Message with receipt handle %s deleted from queue %s',
+                    receipt_handle, queue_url)
+
+    def _show_one_queue(self, conn, name, count, delete=False):
+        """
+        Show ``count`` messages from the specified SQS queue.
+
+        :param conn: SQS API connection
+        :type conn: botocore.client.SQS
+        :param name: queue name, or None for all queues in config.
+        :type name: str
+        :param count: maximum number of messages to get from queue
+        :type count: int
+        :param delete: whether or not to delete messages after receipt
+        :type delete: bool
+        """
+        url = self._url_for_queue(conn, name)
+        logger.debug("Queue '%s' url: %s", name, url)
+        logger.warning('Receiving %d messages from queue\'%s\'; this may take '
+                       'up to 20 seconds.', count, name)
+        msgs = conn.receive_message(
+            QueueUrl=url,
+            AttributeNames=['All'],
+            MessageAttributeNames=['All'],
+            MaxNumberOfMessages=count,
+            WaitTimeSeconds=20
+        )
+        if 'Messages' not in msgs:
+            logger.debug('received no messages')
+            print('=> Queue \'%s\' appears empty.' % name)
+            return
+        logger.debug('received %d messages', len(msgs['Messages']))
+        print('=> Queue \'%s\' (%s)' % (name, url))
+        if len(msgs['Messages']) > count:
+            msgs['Messages'] = msgs['Messages'][:count]
+        for m in msgs['Messages']:
+            pprint(m)
+            if delete:
+                self._delete_msg(conn, url, m['ReceiptHandle'])
+
+    @property
+    def _all_queue_names(self):
+        """
+        Return a list of all unique queue names in our config.
+
+        :return: list of all queue names (str)
+        :rtype: list
+        """
+        queues = set()
+        endpoints = self.config.get('endpoints')
+        for e in endpoints:
+            for q in endpoints[e]['queues']:
+                queues.add(q)
+        return sorted(queues)
+
     def show_queue(self, name=None, count=10, delete=False):
-        pass
+        """
+        Show up to ``count`` messages from the queue named ``name``. If ``name``
+        is None, show for each queue in our config. If ``delete`` is True,
+        delete the messages after showing them.
+
+        :param name: queue name, or None for all queues in config.
+        :type name: str
+        :param count: maximum number of messages to get from queue
+        :type count: int
+        :param delete: whether or not to delete messages after receipt
+        :type delete: bool
+        """
+        if count > 10:
+            raise Exception('Error: currently this script only supports '
+                            'receiving 10 or fewer messages per queue.')
+        logger.debug('Connecting to SQS API')
+        conn = client('sqs')
+        if name is not None:
+            self._show_one_queue(conn, name, count, delete=delete)
+            return
+        for q_name in self._all_queue_names:
+            self._show_one_queue(conn, q_name, count, delete=delete)
