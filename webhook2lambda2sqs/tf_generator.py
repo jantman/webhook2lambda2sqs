@@ -244,11 +244,105 @@ class TerraformGenerator(object):
         logger.info('Found AWS account ID as %s; region: %s',
                     self.aws_account_id, self.aws_region)
 
+    def _generate_integration_request_models(self):
+        """
+        Generate the full configuration for the Request Models, and add to
+        self.tf_conf
+        """
+        return {
+            'application/json': """##  See http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+##  This template will pass through all parameters including path, querystring, header, stage variables, and context through to the integration endpoint via the body/payload
+#set($allParams = $input.params())
+{
+"body-json" : $input.json('$'),
+"params" : {
+#foreach($type in $allParams.keySet())
+    #set($params = $allParams.get($type))
+"$type" : {
+    #foreach($paramName in $params.keySet())
+    "$paramName" : "$util.escapeJavaScript($params.get($paramName))"
+        #if($foreach.hasNext),#end
+    #end
+}
+    #if($foreach.hasNext),#end
+#end
+},
+"stage-variables" : {
+#foreach($key in $stageVariables.keySet())
+"$key" : "$util.escapeJavaScript($stageVariables.get($key))"
+    #if($foreach.hasNext),#end
+#end
+},
+"context" : {
+    "account-id" : "$context.identity.accountId",
+    "api-id" : "$context.apiId",
+    "api-key" : "$context.identity.apiKey",
+    "authorizer-principal-id" : "$context.authorizer.principalId",
+    "caller" : "$context.identity.caller",
+    "cognito-authentication-provider" : "$context.identity.cognitoAuthenticationProvider",
+    "cognito-authentication-type" : "$context.identity.cognitoAuthenticationType",
+    "cognito-identity-id" : "$context.identity.cognitoIdentityId",
+    "cognito-identity-pool-id" : "$context.identity.cognitoIdentityPoolId",
+    "http-method" : "$context.httpMethod",
+    "stage" : "$context.stage",
+    "source-ip" : "$context.identity.sourceIp",
+    "user" : "$context.identity.user",
+    "user-agent" : "$context.identity.userAgent",
+    "user-arn" : "$context.identity.userArn",
+    "request-id" : "$context.requestId",
+    "resource-id" : "$context.resourceId",
+    "resource-path" : "$context.resourcePath"
+    }
+}"""
+    }
+
+    def _generate_response_models(self):
+        """
+        Generate API Gateway response models and add to self.tf_conf
+        """
+        self.tf_conf['resource']['aws_api_gateway_model'] = {
+            'errormessage': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'name': 'errormessage',
+                'description': 'error message JSON schema',
+                'content_type': 'application/json',
+                'schema': """{
+  "$schema" : "http://json-schema.org/draft-04/schema#",
+  "title" : "Error Schema",
+  "type" : "object",
+  "properties" : {
+    "status" : { "type" : "string" },
+    "message" : { "type" : "string" }
+  }
+}
+                """
+            },
+            'successmessage': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'name': 'successmessage',
+                'description': 'success message JSON schema',
+                'content_type': 'application/json',
+                'schema': """{
+  "$schema" : "http://json-schema.org/draft-04/schema#",
+  "title" : "Success Schema",
+  "type" : "object",
+  "properties" : {
+    "status" : { "type" : "string" },
+    "message" : { "type" : "string" },
+    "SQSMessageId" : { "type" : "string" }
+  }
+}
+                """
+            }
+        }
+
     def _generate_api_gateway(self):
         """
         Generate the full configuration for the API Gateway, and add to
         self.tf_conf
         """
+        self._generate_response_models()
+        int_models = self._generate_integration_request_models()
         self.tf_conf['resource']['aws_api_gateway_rest_api'] = {
             'rest_api': {
                 'name': self.resource_name,
@@ -276,10 +370,33 @@ class TerraformGenerator(object):
                 'resource_id': '${aws_api_gateway_resource.res1.id}',
                 'http_method': 'POST',
                 'authorization': 'NONE',
-                # request_models
-                # request_parameters_in_json
+                # @TODO: request_models ?
+                # @TODO: request_parameters_in_json ?
             }
         }
+
+        self.tf_conf['resource']['aws_api_gateway_method_response'] = {}
+        self.tf_conf['resource']['aws_api_gateway_method_response'][
+            'res1meth1_202'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.res1.id}',
+            'http_method': 'POST',
+            'status_code': 202,
+            'response_models': {
+                'application/json': '${aws_api_gateway_model.errormessage.name}',
+            }
+        }
+        self.tf_conf['resource']['aws_api_gateway_method_response'][
+            'res1meth1_500'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.res1.id}',
+            'http_method': 'POST',
+            'status_code': 500,
+            'response_models': {
+                'application/json': '${aws_api_gateway_model.successmessage.name}',
+            }
+        }
+
         # https://www.terraform.io/docs/providers/aws/r/api_gateway_integration.html
         self.tf_conf['resource']['aws_api_gateway_integration'] = {
             'res1int1': {
@@ -295,7 +412,7 @@ class TerraformGenerator(object):
                     'iam_invoke_role_arn']['value'],
                 'integration_http_method':
                     '${aws_api_gateway_method.res1meth1.http_method}',
-                # request_templates
+                'request_templates': int_models
                 # request_parameters_in_json
                 # integrationResponses
             }
