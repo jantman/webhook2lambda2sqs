@@ -355,7 +355,7 @@ class TestTerraformRunner(object):
         ]
         assert mock_logger.mock_calls == [
             call.warning('Running terraform destroy: %s',
-                         '-refresh=true .'),
+                         '-refresh=true -force .'),
             call.warning("Terraform destroy finished successfully:\n%s",
                          'output')
         ]
@@ -375,7 +375,7 @@ class TestTerraformRunner(object):
         ]
         assert mock_logger.mock_calls == [
             call.warning('Running terraform destroy: %s',
-                         '-refresh=true .'),
+                         '-refresh=true -force .'),
             call.warning("Terraform destroy finished successfully.")
         ]
 
