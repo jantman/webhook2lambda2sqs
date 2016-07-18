@@ -90,6 +90,26 @@ class TestTerraformGenerator(object):
         }
         assert cls.resource_name == 'foobar'
 
+    def test_get_config(self):
+        self.cls.tf_conf = {'foo': 'bar'}
+        with patch('%s.pretty_json' % pbm, autospec=True) as mock_json:
+            with patch.multiple(
+                pb,
+                autospec=True,
+                _generate_lambda=DEFAULT,
+                _generate_iam_role=DEFAULT,
+                _set_account_info=DEFAULT,
+                _generate_api_gateway=DEFAULT,
+            ) as mocks:
+                mock_json.return_value = 'my_json_str'
+                res = self.cls._get_config('funcsrc')
+        assert mock_json.mock_calls == [call({'foo': 'bar'})]
+        assert mocks['_generate_lambda'].mock_calls == [call(self.cls)]
+        assert mocks['_generate_iam_role'].mock_calls == [call(self.cls)]
+        assert mocks['_set_account_info'].mock_calls == [call(self.cls)]
+        assert mocks['_generate_api_gateway'].mock_calls == [call(self.cls)]
+        assert res == 'my_json_str'
+
     def test_get_tags_none(self):
         res = self.cls._get_tags()
         assert res == {
@@ -343,21 +363,3 @@ class TestTerraformGenerator(object):
             call.debug('terraform configuration written'),
             call.warning('Completed writing lambda function and TF config.')
         ]
-
-    def test_get_config(self):
-        self.cls.tf_conf = {'foo': 'bar'}
-        with patch('%s.pretty_json' % pbm, autospec=True) as mock_json:
-            with patch.multiple(
-                pb,
-                autospec=True,
-                _generate_lambda=DEFAULT,
-                _generate_iam_role=DEFAULT,
-                _set_account_info=DEFAULT,
-            ) as mocks:
-                mock_json.return_value = 'my_json_str'
-                res = self.cls._get_config('funcsrc')
-        assert mock_json.mock_calls == [call({'foo': 'bar'})]
-        assert mocks['_generate_lambda'].mock_calls == [call(self.cls)]
-        assert mocks['_generate_iam_role'].mock_calls == [call(self.cls)]
-        assert mocks['_set_account_info'].mock_calls == [call(self.cls)]
-        assert res == 'my_json_str'

@@ -69,6 +69,11 @@ class TerraformGenerator(object):
         self.aws_account_id = None
         self.aws_region = None
 
+    @property
+    def description(self):
+        return 'push webhook contents to SQS - generated and managed by ' \
+               '%s v%s' % (PROJECT_URL, VERSION)
+
     def _get_tags(self):
         """
         Return a dict of tags to apply to AWS resources.
@@ -122,6 +127,21 @@ class TerraformGenerator(object):
             'role': '${aws_iam_role.lambda_role.id}',
             'policy': json.dumps(pol)
         }
+        invoke_pol = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Resource": ["*"],
+                    "Action": ["lambda:InvokeFunction"]
+                }
+            ]
+        }
+        self.tf_conf['resource']['aws_iam_role_policy']['invoke_policy'] = {
+            'name': self.resource_name + '-invoke',
+            'role': '${aws_iam_role.invoke_role.id}',
+            'policy': json.dumps(invoke_pol)
+        }
 
     def _generate_iam_role(self):
         """
@@ -153,6 +173,30 @@ class TerraformGenerator(object):
         self.tf_conf['output']['iam_role_unique_id'] = {
             'value': '${aws_iam_role.lambda_role.unique_id}'
         }
+
+        invoke_assume = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole",
+                    "Principal": {
+                        "Service": "apigateway.amazonaws.com"
+                    },
+                    "Effect": "Allow",
+                    "Sid": ""
+                }
+            ]
+        }
+        self.tf_conf['resource']['aws_iam_role']['invoke_role'] = {
+            'name': self.resource_name + '-invoke',
+            'assume_role_policy': json.dumps(invoke_assume),
+        }
+        self.tf_conf['output']['iam_invoke_role_arn'] = {
+            'value': '${aws_iam_role.invoke_role.arn}'
+        }
+        self.tf_conf['output']['iam_invoke_role_unique_id'] = {
+            'value': '${aws_iam_role.invoke_role.unique_id}'
+        }
         self._generate_iam_role_policy()
 
     def _generate_lambda(self):
@@ -167,8 +211,7 @@ class TerraformGenerator(object):
             'handler': 'webhook2lambda2sqs_func.webhook2lambda2sqs_handler',
             'source_code_hash': '${base64sha256(file('
                                 '"webhook2lambda2sqs_func.zip"))}',
-            'description': 'push webhook contents to SQS - generated and '
-                           'managed by %s v%s' % (PROJECT_URL, VERSION),
+            'description': self.description,
             'runtime': 'python2.7',
             'timeout': 120
         }
@@ -201,6 +244,125 @@ class TerraformGenerator(object):
         logger.info('Found AWS account ID as %s; region: %s',
                     self.aws_account_id, self.aws_region)
 
+    def _generate_api_gateway(self):
+        """
+        Generate the full configuration for the API Gateway, and add to
+        self.tf_conf
+        """
+        self.tf_conf['resource']['aws_api_gateway_rest_api'] = {
+            'rest_api': {
+                'name': self.resource_name,
+                'description': self.description
+            }
+        }
+        self.tf_conf['output']['rest_api_id'] = {
+            'value': '${aws_api_gateway_rest_api.rest_api.id}'
+        }
+        # @TODO - these should be per-endpoint
+        self.tf_conf['resource']['aws_api_gateway_resource'] = {
+            'res1': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'parent_id':
+                    '${aws_api_gateway_rest_api.rest_api.root_resource_id}',
+                'path_part': 'foo'
+            }
+        }
+        self.tf_conf['output']['res1_path'] = {
+            'value': '${aws_api_gateway_resource.res1.path}'
+        }
+        self.tf_conf['resource']['aws_api_gateway_method'] = {
+            'res1meth1': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'resource_id': '${aws_api_gateway_resource.res1.id}',
+                'http_method': 'POST',
+                'authorization': 'NONE',
+                # request_models
+                # request_parameters_in_json
+            }
+        }
+        # https://www.terraform.io/docs/providers/aws/r/api_gateway_integration.html
+        self.tf_conf['resource']['aws_api_gateway_integration'] = {
+            'res1int1': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'resource_id': '${aws_api_gateway_resource.res1.id}',
+                'http_method':
+                    '${aws_api_gateway_method.res1meth1.http_method}',
+                'type': 'AWS',
+                'uri': 'arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/'
+                       'functions/${aws_lambda_function.lambda_func.arn}'
+                       '/invocations',
+                'credentials': self.tf_conf['output'][
+                    'iam_invoke_role_arn']['value'],
+                'integration_http_method':
+                    '${aws_api_gateway_method.res1meth1.http_method}',
+                # request_templates
+                # request_parameters_in_json
+                # integrationResponses
+            }
+        }
+
+        # finally, the deployment
+        stage_name = 'webhook2lambda2sqs'
+        self.tf_conf['resource']['aws_api_gateway_deployment'] = {
+            'depl': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'depends_on': ['aws_api_gateway_rest_api.rest_api'],
+                'description': self.description,
+                'stage_name': stage_name
+            }
+        }
+        """
+        @TODO - how to enable cloudwatch logs and metrics?
+        it looks like TF doesn't support this. When we enable them via the
+        Console:
+
+        $ aws apigateway get-stages --rest-api-id qn6agayon8
+        {
+            "item": [
+                {
+                    "stageName": "webhook2lambda2sqs",
+                    "cacheClusterSize": "0.5",
+                    "variables": {},
+                    "cacheClusterEnabled": false,
+                    "cacheClusterStatus": "NOT_AVAILABLE",
+                    "deploymentId": "za7cha",
+                    "lastUpdatedDate": 1468865370,
+                    "createdDate": 1468864980,
+                    "methodSettings": {
+                        "*/*": {
+                            "cacheTtlInSeconds": 300,
+                            "loggingLevel": "INFO",
+                            "dataTraceEnabled": true,
+                            "metricsEnabled": true,
+                            "unauthorizedCacheControlHeaderStrategy":
+                                "SUCCEED_WITH_RESPONSE_HEADER",
+                            "throttlingRateLimit": 500.0,
+                            "cacheDataEncrypted": false,
+                            "cachingEnabled": false,
+                            "throttlingBurstLimit": 1000,
+                            "requireAuthorizationForCacheControl": true
+                        }
+                    }
+                }
+            ]
+        }
+
+        But TF doesn't have a 'methodSettings' parameter... and it appears
+        ( see
+        https://docs.aws.amazon.com/apigateway/api-reference/resource/stage/
+        and
+        https://docs.aws.amazon.com/apigateway/api-reference/link-relation/stage-create/
+        )
+        that the actual AWS API supports updating these values, but not
+        specifying them at creation time.
+        """
+        self.tf_conf['output']['base_url'] = {
+            'value': 'https://${aws_api_gateway_rest_api.rest_api.id}.'
+                     'execute-api.%s.amazonaws.com/%s/' % (
+                self.aws_region, stage_name
+            )
+        }
+
     def _get_config(self, func_src):
         """
         Return the full terraform configuration as a JSON string
@@ -213,6 +375,7 @@ class TerraformGenerator(object):
         self._set_account_info()
         self._generate_iam_role()
         self._generate_lambda()
+        self._generate_api_gateway()
         return pretty_json(self.tf_conf)
 
     def _write_zip(self, func_src, fpath):
