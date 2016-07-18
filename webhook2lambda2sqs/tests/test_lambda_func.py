@@ -77,3 +77,15 @@ class TestLambdaFunc(object):
             call.debug('Event: %s', evt),
             call.debug('Context: %s', vars(context))
         ]
+
+    def test_basic_no_context(self):
+        ep = {'foo': 'bar'}
+        evt = {u'key3': u'value3', u'key2': u'value2', u'key1': u'value1'}
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s.endpoints' % pbm, ep):
+                webhook2lambda2sqs_handler(evt, None)
+        assert mock_logger.mock_calls == [
+            call.debug('Endpoint Config: %s', {'foo': 'bar'}),
+            call.debug('Event: %s', evt),
+            call.info('Error dumping context vars', excinfo=1)
+        ]
