@@ -207,7 +207,7 @@ class TerraformRunner(object):
         :type stream: bool
         """
         self._set_remote(stream=stream)
-        args = ['-refresh=true', '.']
+        args = ['-refresh=true', '-force', '.']
         logger.warning('Running terraform destroy: %s', ' '.join(args))
         out = self._run_tf('destroy', cmd_args=args, stream=stream)
         if stream:

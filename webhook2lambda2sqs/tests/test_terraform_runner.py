@@ -350,7 +350,7 @@ class TestTerraformRunner(object):
                     cls.destroy()
         assert mock_set.mock_calls == [call(cls, stream=False)]
         assert mock_run.mock_calls == [
-            call(cls, 'destroy', cmd_args=['-refresh=true', '.'],
+            call(cls, 'destroy', cmd_args=['-refresh=true', '-force', '.'],
                  stream=False)
         ]
         assert mock_logger.mock_calls == [
@@ -370,7 +370,7 @@ class TestTerraformRunner(object):
                     cls.destroy(stream=True)
         assert mock_set.mock_calls == [call(cls, stream=True)]
         assert mock_run.mock_calls == [
-            call(cls, 'destroy', cmd_args=['-refresh=true', '.'],
+            call(cls, 'destroy', cmd_args=['-refresh=true', '-force', '.'],
                  stream=True)
         ]
         assert mock_logger.mock_calls == [
