@@ -23,3 +23,4 @@ def webhook2lambda2sqs_handler(event, context):
         logger.debug('Context: %s', vars(context))
     except:
         logger.info('Error dumping context vars', excinfo=1)
+    return {'foo': 'bar'}
