@@ -175,7 +175,20 @@ class TerraformRunner(object):
         """
         Print the terraform outputs.
         """
+        outs = self._get_outputs()
+        print("\n\n" + '=> Terraform Outputs:')
+        for k in sorted(outs):
+            print('%s = %s' % (k, outs[k]))
+
+    def _get_outputs(self):
+        """
+        Return a dict of the terraform outputs.
+
+        :return: dict of terraform outputs
+        :rtype: dict
+        """
         fpath = None
+        outs = {}
         for p in ['.terraform/terraform.tfstate', 'terraform.tfstate']:
             if os.path.exists(p):
                 fpath = p
@@ -185,19 +198,19 @@ class TerraformRunner(object):
         if fpath is None:
             logger.error('Error: no terraform.tfstate file found; cannot show'
                          ' terraform outputs.')
-            return
+            return outs
         try:
             state = read_json_file(fpath)
             logger.debug('Terraform state: %s', state)
-            print("\n\n" + '=> Terraform Outputs:')
             for mod in state['modules']:
                 if 'outputs' not in mod:
                     continue
-                for k in sorted(mod['outputs'].keys()):
-                    print('%s = %s' % (k, mod['outputs'][k]))
+                for k in mod['outputs'].keys():
+                    outs[k] = mod['outputs'][k]
         except Exception:
             logger.error('Error showing outputs from terraform state file: %s',
                          fpath, excinfo=1)
+        return outs
 
     def destroy(self, stream=False):
         """

@@ -71,7 +71,7 @@ setup(
     long_description=long_description,
     keywords="aws webhook lambda apigateway sqs queue amazon",
     classifiers=classifiers,
-    install_requires=['boto3>=1.2.3'],
+    install_requires=['boto3>=1.2.3', 'requests'],
     entry_points="""
     [console_scripts]
     webhook2lambda2sqs = webhook2lambda2sqs.runner:main

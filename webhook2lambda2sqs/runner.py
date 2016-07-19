@@ -40,6 +40,9 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import argparse
 import logging
+from platform import node
+from datetime import datetime
+import requests
 
 from webhook2lambda2sqs.version import PROJECT_URL, VERSION
 from webhook2lambda2sqs.config import Config
@@ -61,6 +64,11 @@ boto3_log.propagate = True
 botocore_log = logging.getLogger("botocore")
 botocore_log.setLevel(logging.WARNING)
 botocore_log.propagate = True
+
+# suppress requests internal logging below WARNING level
+requests_log = logging.getLogger("requests")
+requests_log.setLevel(logging.WARNING)
+requests_log.propagate = True
 
 
 def parse_args(argv):
@@ -132,6 +140,10 @@ def parse_args(argv):
                                               'each queue (default 10)')
     testparser = subparsers.add_parser('test', help='send test message to '
                                                     'one or more endpoints')
+    testparser.add_argument('-t', '--terraform-path', dest='tf_path',
+                            action='store', default='terraform',
+                            type=str, help='path to terraform '
+                            'binary, if not in PATH')
     testparser.add_argument('-n', '--endpoint-name', dest='endpoint_name',
                             type=str, default=None,
                             help='endpoint name (default: None, to send to '
@@ -172,6 +184,69 @@ def set_log_level_format(level, format):
     logger.setLevel(level)
 
 
+def get_base_url(config, args):
+    """
+    Get the API base url. Try Terraform state first, then
+    :py:class:`~.AWSInfo`.
+
+    :param config: configuration
+    :type config: :py:class:`~.Config`
+    :param args: command line arguments
+    :type args: :py:class:`argparse.Namespace`
+    :return: API base URL
+    :rtype: str
+    """
+    try:
+        logger.debug('Trying to get Terraform base_url output')
+        runner = TerraformRunner(config, args.tf_path)
+        outputs = runner._get_outputs()
+        base_url = outputs['base_url']
+    except Exception:
+        logger.info('Unable to find API base_url from Terraform state; '
+                    'querying AWS.', exc_info=1)
+        aws = AWSInfo(config)
+        base_url = aws.get_api_base_url()
+    if not base_url.endswith('/'):
+        base_url += '/'
+    return base_url
+
+
+def run_test(config, args):
+    """
+    Run the 'test' subcommand
+
+    :param config: configuration
+    :type config: :py:class:`~.Config`
+    :param args: command line arguments
+    :type args: :py:class:`argparse.Namespace`
+    """
+    base_url = get_base_url(config, args)
+    logger.debug('API base url: %s', base_url)
+    endpoints = config.get('endpoints')
+    if args.endpoint_name is not None:
+        endpoints = [endpoints[args.endpoint_name]]
+    for ep in endpoints:
+        dt = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
+        data = {
+            'message': 'testing via webhook2lambda2sqs CLI',
+            'version': VERSION,
+            'host': node(),
+            'datetime': dt
+        }
+        url = base_url + ep + '/'
+        print('=> Testing endpoint %s with %s: %s' % (
+            url, endpoints[ep]['method'], data)
+        )
+        if endpoints[ep]['method'] == 'POST':
+            res = requests.post(url, json=data)
+        elif endpoints[ep]['method'] == 'GET':
+            res = requests.get(url, params=data)
+        print('RESULT: HTTP %d' % res.status_code)
+        for h in sorted(res.headers):
+            print('%s: %s' % (h, res.headers[h]))
+        print("\n%s\n" % res.content)
+
+
 def main(args=None):
     """
     Main entry point
@@ -208,7 +283,7 @@ def main(args=None):
         return
 
     if args.action == 'test':
-        # @TODO - implement this
+        run_test(config, args)
         return
 
     # if generate or genapply, generate the configs

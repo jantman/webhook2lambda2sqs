@@ -383,7 +383,8 @@ class TerraformGenerator(object):
             'http_method': 'POST',
             'status_code': 202,
             'response_models': {
-                'application/json': '${aws_api_gateway_model.errormessage.name}',
+                'application/json':
+                    '${aws_api_gateway_model.successmessage.name}',
             }
         }
         self.tf_conf['resource']['aws_api_gateway_method_response'][
@@ -393,9 +394,26 @@ class TerraformGenerator(object):
             'http_method': 'POST',
             'status_code': 500,
             'response_models': {
-                'application/json': '${aws_api_gateway_model.successmessage.name}',
+                'application/json': '${aws_api_gateway_model.errormessage.name}',
             }
         }
+
+        self.tf_conf['resource']['aws_api_gateway_integration_response'] = {
+            'successResponse': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'resource_id': '${aws_api_gateway_resource.res1.id}',
+                'http_method': 'POST',
+                'status_code': 202,
+                'selection_pattern': '.*"success".*'
+            },
+            'errorResponse': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'resource_id': '${aws_api_gateway_resource.res1.id}',
+                'http_method': 'POST',
+                'status_code': 500,
+            }
+        }
+        # {"status": "success"}
 
         # https://www.terraform.io/docs/providers/aws/r/api_gateway_integration.html
         self.tf_conf['resource']['aws_api_gateway_integration'] = {
@@ -419,6 +437,7 @@ class TerraformGenerator(object):
         }
 
         # finally, the deployment
+        # note stage_name is also hard-coded in AWSInfo.get_api_base_url
         stage_name = 'webhook2lambda2sqs'
         self.tf_conf['resource']['aws_api_gateway_deployment'] = {
             'depl': {
