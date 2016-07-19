@@ -44,6 +44,7 @@ import os
 
 from webhook2lambda2sqs.version import VERSION, PROJECT_URL
 from webhook2lambda2sqs.utils import pretty_json
+from webhook2lambda2sqs.json_templates import request_model_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -244,58 +245,6 @@ class TerraformGenerator(object):
         logger.info('Found AWS account ID as %s; region: %s',
                     self.aws_account_id, self.aws_region)
 
-    def _generate_integration_request_models(self):
-        """
-        Generate the full configuration for the Request Models, and add to
-        self.tf_conf
-        """
-        return {
-            'application/json': """##  See http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
-##  This template will pass through all parameters including path, querystring, header, stage variables, and context through to the integration endpoint via the body/payload
-#set($allParams = $input.params())
-{
-"body-json" : $input.json('$'),
-"params" : {
-#foreach($type in $allParams.keySet())
-    #set($params = $allParams.get($type))
-"$type" : {
-    #foreach($paramName in $params.keySet())
-    "$paramName" : "$util.escapeJavaScript($params.get($paramName))"
-        #if($foreach.hasNext),#end
-    #end
-}
-    #if($foreach.hasNext),#end
-#end
-},
-"stage-variables" : {
-#foreach($key in $stageVariables.keySet())
-"$key" : "$util.escapeJavaScript($stageVariables.get($key))"
-    #if($foreach.hasNext),#end
-#end
-},
-"context" : {
-    "account-id" : "$context.identity.accountId",
-    "api-id" : "$context.apiId",
-    "api-key" : "$context.identity.apiKey",
-    "authorizer-principal-id" : "$context.authorizer.principalId",
-    "caller" : "$context.identity.caller",
-    "cognito-authentication-provider" : "$context.identity.cognitoAuthenticationProvider",
-    "cognito-authentication-type" : "$context.identity.cognitoAuthenticationType",
-    "cognito-identity-id" : "$context.identity.cognitoIdentityId",
-    "cognito-identity-pool-id" : "$context.identity.cognitoIdentityPoolId",
-    "http-method" : "$context.httpMethod",
-    "stage" : "$context.stage",
-    "source-ip" : "$context.identity.sourceIp",
-    "user" : "$context.identity.user",
-    "user-agent" : "$context.identity.userAgent",
-    "user-arn" : "$context.identity.userArn",
-    "request-id" : "$context.requestId",
-    "resource-id" : "$context.resourceId",
-    "resource-path" : "$context.resourcePath"
-    }
-}"""
-    }
-
     def _generate_response_models(self):
         """
         Generate API Gateway response models and add to self.tf_conf
@@ -342,7 +291,6 @@ class TerraformGenerator(object):
         self.tf_conf
         """
         self._generate_response_models()
-        int_models = self._generate_integration_request_models()
         self.tf_conf['resource']['aws_api_gateway_rest_api'] = {
             'rest_api': {
                 'name': self.resource_name,
@@ -394,7 +342,8 @@ class TerraformGenerator(object):
             'http_method': 'POST',
             'status_code': 500,
             'response_models': {
-                'application/json': '${aws_api_gateway_model.errormessage.name}',
+                'application/json':
+                    '${aws_api_gateway_model.errormessage.name}',
             }
         }
 
@@ -430,7 +379,9 @@ class TerraformGenerator(object):
                     'iam_invoke_role_arn']['value'],
                 'integration_http_method':
                     '${aws_api_gateway_method.res1meth1.http_method}',
-                'request_templates': int_models
+                'request_templates': {
+                    'application/json': request_model_mapping
+                }
                 # request_parameters_in_json
                 # integrationResponses
             }
@@ -494,9 +445,8 @@ class TerraformGenerator(object):
         """
         self.tf_conf['output']['base_url'] = {
             'value': 'https://${aws_api_gateway_rest_api.rest_api.id}.'
-                     'execute-api.%s.amazonaws.com/%s/' % (
-                self.aws_region, stage_name
-            )
+                     'execute-api.%s.amazonaws.com/%s/' % (self.aws_region,
+                                                           stage_name)
         }
 
     def _get_config(self, func_src):
