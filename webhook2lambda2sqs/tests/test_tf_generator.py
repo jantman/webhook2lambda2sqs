@@ -38,9 +38,11 @@ import sys
 import json
 from freezegun import freeze_time
 from zipfile import ZipInfo
+from copy import deepcopy
 
 from webhook2lambda2sqs.tf_generator import TerraformGenerator
 from webhook2lambda2sqs.version import VERSION, PROJECT_URL
+from webhook2lambda2sqs.config import Config
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -60,15 +62,37 @@ pb = '%s.TerraformGenerator' % pbm
 class TestTerraformGenerator(object):
 
     def setup(self):
-        self.conf = {}
+        self.conf = deepcopy(Config._example)
+        if 'terraform_remote_state' in self.conf:
+            del self.conf['terraform_remote_state']
 
         def se_get(k):
             return self.conf.get(k, None)
 
         config = Mock()
         config.get.side_effect = se_get
-        type(config).func_name = 'webhook2lambda2sqs'
+        type(config).func_name = 'myFuncName'
         self.cls = TerraformGenerator(config)
+        self.cls.aws_region = 'myregion'
+        self.cls.aws_account_id = '1234'
+        self.base_tf_conf = {
+            'provider': {
+                'aws': {}
+            },
+            'resource': {
+                'aws_api_gateway_integration': {},
+                'aws_api_gateway_integration_response': {},
+                'aws_api_gateway_deployment': {},
+                'aws_api_gateway_method': {},
+                'aws_api_gateway_method_response': {},
+                'aws_api_gateway_resource': {},
+                'aws_api_gateway_rest_api': {},
+                'aws_iam_role': {},
+                'aws_iam_role_policy': {},
+                'aws_lambda_function': {},
+            },
+            'output': {}
+        }
 
     def test_init(self):
         conf = {}
@@ -81,41 +105,15 @@ class TestTerraformGenerator(object):
         type(config).func_name = 'foobar'
         cls = TerraformGenerator(config)
         assert cls.config == config
-        assert cls.tf_conf == {
-            'provider': {
-                'aws': {}
-            },
-            'resource': {},
-            'output': {}
-        }
         assert cls.resource_name == 'foobar'
+        assert cls.aws_account_id is None
+        assert cls.aws_region is None
+        assert cls.tf_conf == self.base_tf_conf
 
-    def test_get_config(self):
-        self.cls.tf_conf = {'foo': 'bar'}
-        with patch('%s.pretty_json' % pbm, autospec=True) as mock_json:
-            with patch.multiple(
-                pb,
-                autospec=True,
-                _generate_lambda=DEFAULT,
-                _generate_iam_role=DEFAULT,
-                _set_account_info=DEFAULT,
-                _generate_api_gateway=DEFAULT,
-            ) as mocks:
-                mock_json.return_value = 'my_json_str'
-                res = self.cls._get_config('funcsrc')
-        assert mock_json.mock_calls == [call({'foo': 'bar'})]
-        assert mocks['_generate_lambda'].mock_calls == [call(self.cls)]
-        assert mocks['_generate_iam_role'].mock_calls == [call(self.cls)]
-        assert mocks['_set_account_info'].mock_calls == [call(self.cls)]
-        assert mocks['_generate_api_gateway'].mock_calls == [call(self.cls)]
-        assert res == 'my_json_str'
-
-    def test_get_tags_none(self):
-        res = self.cls._get_tags()
-        assert res == {
-            'Name': 'webhook2lambda2sqs',
-            'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
-        }
+    def test_description(self):
+        assert self.cls.description == 'push webhook contents to SQS - ' \
+                                       'generated and managed by %s ' \
+                                       'v%s' % (PROJECT_URL, VERSION)
 
     def test_get_tags(self):
         self.conf = {
@@ -133,19 +131,16 @@ class TestTerraformGenerator(object):
             'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
         }
 
+    def test_get_tags_none(self):
+        del self.conf['aws_tags']
+        res = self.cls._get_tags()
+        assert res == {
+            'Name': 'myFuncName',
+            'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
+        }
+
     def test_generate_iam_role_policy(self):
-        self.cls.aws_region = 'myregion'
-        self.cls.aws_account_id = '1234'
-        self.cls.resource_name = 'abc'
-        assert self.cls.tf_conf['resource'] == {}
         self.cls._generate_iam_role_policy()
-        assert 'aws_iam_role_policy' in self.cls.tf_conf['resource']
-        assert 'role_policy' in self.cls.tf_conf['resource'][
-            'aws_iam_role_policy']
-        pol = self.cls.tf_conf['resource']['aws_iam_role_policy']['role_policy']
-        assert sorted(pol.keys()) == ['name', 'policy', 'role']
-        assert pol['name'] == 'abc'
-        assert pol['role'] == '${aws_iam_role.lambda_role.id}'
         expected_pol = {
             "Version": "2012-10-17",
             "Statement": [
@@ -161,24 +156,43 @@ class TestTerraformGenerator(object):
                         "logs:PutLogEvents"
                     ],
                     "Resource": [
-                        "arn:aws:logs:myregion:1234:log-group:/aws/lambda/abc:*"
+                        "arn:aws:logs:myregion:1234:log-group:"
+                        "/aws/lambda/myFuncName:*"
                     ]
                 }
             ]
         }
-        assert json.loads(pol['policy']) == expected_pol
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_iam_role_policy']['role_policy'] = {
+            'name': 'myFuncName',
+            'role': '${aws_iam_role.lambda_role.id}',
+            'policy': json.dumps(expected_pol)
+        }
+        assert self.cls.tf_conf == expected_conf
+
+    def test_generate_iam_invoke_role_policy(self):
+        self.cls._generate_iam_invoke_role_policy()
+        expected_pol = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Resource": ["*"],
+                    "Action": ["lambda:InvokeFunction"]
+                }
+            ]
+        }
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_iam_role_policy']['invoke_policy'] = {
+            'name': 'myFuncName-invoke',
+            'role': '${aws_iam_role.invoke_role.id}',
+            'policy': json.dumps(expected_pol)
+        }
+        assert self.cls.tf_conf == expected_conf
 
     def test_generate_iam_role(self):
-        assert self.cls.tf_conf['resource'] == {}
-        self.cls.resource_name = 'abc'
-        with patch('%s._generate_iam_role_policy' % pb, autospec=True) as mrp:
-            self.cls._generate_iam_role()
-        assert 'aws_iam_role' in self.cls.tf_conf['resource']
-        assert 'lambda_role' in self.cls.tf_conf['resource']['aws_iam_role']
-        role = self.cls.tf_conf['resource']['aws_iam_role']['lambda_role']
-        assert sorted(role.keys()) == ['assume_role_policy', 'name']
-        assert role['name'] == 'abc'
-        assert json.loads(role['assume_role_policy']) == {
+        self.cls._generate_iam_role()
+        expected_pol = {
             "Version": "2012-10-17",
             "Statement": [
                 {
@@ -191,38 +205,71 @@ class TestTerraformGenerator(object):
                 }
             ]
         }
-        assert self.cls.tf_conf['output']['iam_role_arn'] == {
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_iam_role']['lambda_role'] = {
+            'name': 'myFuncName',
+            'assume_role_policy': json.dumps(expected_pol)
+        }
+        expected_conf['output']['iam_role_arn'] = {
             'value': '${aws_iam_role.lambda_role.arn}'
         }
-        assert self.cls.tf_conf['output']['iam_role_unique_id'] == {
+        expected_conf['output']['iam_role_unique_id'] = {
             'value': '${aws_iam_role.lambda_role.unique_id}'
         }
-        assert mrp.mock_calls == [call(self.cls)]
+        assert self.cls.tf_conf == expected_conf
+
+    def test_generate_iam_invoke_role(self):
+        self.cls._generate_iam_invoke_role()
+        expected_pol = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole",
+                    "Principal": {
+                        "Service": "apigateway.amazonaws.com"
+                    },
+                    "Effect": "Allow",
+                    "Sid": ""
+                }
+            ]
+        }
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_iam_role']['invoke_role'] = {
+            'name': 'myFuncName-invoke',
+            'assume_role_policy': json.dumps(expected_pol)
+        }
+        expected_conf['output']['iam_invoke_role_arn'] = {
+            'value': '${aws_iam_role.invoke_role.arn}'
+        }
+        expected_conf['output']['iam_invoke_role_unique_id'] = {
+            'value': '${aws_iam_role.invoke_role.unique_id}'
+        }
+        assert self.cls.tf_conf == expected_conf
 
     def test_generate_lambda(self):
-        assert self.cls.tf_conf['resource'] == {}
-        self.cls.resource_name = 'abc'
-        self.cls._generate_lambda()
-        f = self.cls.tf_conf['resource']['aws_lambda_function']['lambda_func']
-        assert f == {
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_lambda_function']['lambda_func'] = {
             'filename': 'webhook2lambda2sqs_func.zip',
-            'function_name': 'abc',
+            'function_name': 'myFuncName',
             'role': '${aws_iam_role.lambda_role.arn}',
             'handler': 'webhook2lambda2sqs_func.webhook2lambda2sqs_handler',
             'source_code_hash': '${base64sha256(file('
                                 '"webhook2lambda2sqs_func.zip"))}',
-            'description': 'push webhook contents to SQS - generated and '
-                           'managed by %s v%s' % (PROJECT_URL, VERSION),
+            'description': 'mydesc',
             'runtime': 'python2.7',
             'timeout': 120
         }
-        assert self.cls.tf_conf['output']['lambda_func_arn'] == {
+        expected_conf['output']['lambda_func_arn'] = {
             'value': '${aws_lambda_function.lambda_func.arn}'
         }
+        with patch('%s.description' % pb, new_callable=PropertyMock) as m_d:
+            m_d.return_value = 'mydesc'
+            self.cls._generate_lambda()
+        assert self.cls.tf_conf == expected_conf
 
     def test_set_account_info_env_default(self):
-        assert self.cls.aws_account_id is None
-        assert self.cls.aws_region is None
+        self.cls.aws_account_id = None
+        self.cls.aws_region = None
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s.client' % pbm, autospec=True) as mock_client:
                 mock_client.return_value.get_user.return_value = {
@@ -249,8 +296,8 @@ class TestTerraformGenerator(object):
         ]
 
     def test_set_account_info_env(self):
-        assert self.cls.aws_account_id is None
-        assert self.cls.aws_region is None
+        self.cls.aws_account_id = None
+        self.cls.aws_region = None
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s.client' % pbm, autospec=True) as mock_client:
                 mock_client.return_value.get_user.return_value = {
@@ -277,8 +324,8 @@ class TestTerraformGenerator(object):
         ]
 
     def test_set_account_info_no_env(self):
-        assert self.cls.aws_account_id is None
-        assert self.cls.aws_region is None
+        self.cls.aws_account_id = None
+        self.cls.aws_region = None
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s.client' % pbm, autospec=True) as mock_client:
                 mock_client.return_value.get_user.return_value = {
@@ -300,6 +347,259 @@ class TestTerraformGenerator(object):
             call.info('Found AWS account ID as %s; region: %s',
                       '123456789', 'myregion')
         ]
+
+    def test_generate_response_models(self):
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_api_gateway_model'] = {
+            'errormessage': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'name': 'errormessage',
+                'description': 'error message JSON schema',
+                'content_type': 'application/json',
+                'schema': """{
+  "$schema" : "http://json-schema.org/draft-04/schema#",
+  "title" : "Error Schema",
+  "type" : "object",
+  "properties" : {
+    "status" : { "type" : "string" },
+    "message" : { "type" : "string" }
+  }
+}
+                """
+            },
+            'successmessage': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'name': 'successmessage',
+                'description': 'success message JSON schema',
+                'content_type': 'application/json',
+                'schema': """{
+  "$schema" : "http://json-schema.org/draft-04/schema#",
+  "title" : "Success Schema",
+  "type" : "object",
+  "properties" : {
+    "status" : { "type" : "string" },
+    "message" : { "type" : "string" },
+    "SQSMessageId" : { "type" : "string" }
+  }
+}
+                """
+            }
+        }
+        self.cls._generate_response_models()
+        assert self.cls.tf_conf == expected_conf
+
+    def test_get_config(self):
+        with patch('%s.pretty_json' % pbm, autospec=True) as mock_json:
+            with patch.multiple(
+                pb,
+                autospec=True,
+                _generate_lambda=DEFAULT,
+                _generate_iam_role=DEFAULT,
+                _generate_iam_invoke_role=DEFAULT,
+                _set_account_info=DEFAULT,
+                _generate_response_models=DEFAULT,
+                _generate_api_gateway=DEFAULT,
+                _generate_iam_role_policy=DEFAULT,
+                _generate_iam_invoke_role_policy=DEFAULT,
+            ) as mocks:
+                mock_json.return_value = 'my_json_str'
+                res = self.cls._get_config('funcsrc')
+        assert mock_json.mock_calls == [call(self.base_tf_conf)]
+        for m in mocks:
+            if m.startswith('_generate'):
+                assert mocks[m].mock_calls == [call(self.cls)]
+        assert mocks['_set_account_info'].mock_calls == [call(self.cls)]
+        assert res == 'my_json_str'
+
+    def test_generate_api_gateway(self):
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_api_gateway_rest_api'] = {
+            'rest_api': {
+                'name': 'myFuncName',
+                'description': 'mydesc'
+            }
+        }
+        expected_conf['output']['rest_api_id'] = {
+            'value': '${aws_api_gateway_rest_api.rest_api.id}'
+        }
+        expected_conf['resource']['aws_api_gateway_deployment'] = {
+            'depl': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'depends_on': ['aws_api_gateway_rest_api.rest_api'],
+                'description': 'mydesc',
+                'stage_name': 'webhook2lambda2sqs'
+            }
+        }
+        expected_conf['output']['base_url'] = {
+            'value': 'https://${aws_api_gateway_rest_api.rest_api.id}.'
+                     'execute-api.%s.amazonaws.com/%s/' % ('myregion',
+                                                           'webhook2lambda2sqs')
+        }
+        with patch('%s._generate_endpoint' % pb, autospec=True) as mock_ge:
+            with patch('%s.description' % pb, new_callable=PropertyMock) as m_d:
+                m_d.return_value = 'mydesc'
+                self.cls._generate_api_gateway()
+        assert self.cls.tf_conf == expected_conf
+        assert mock_ge.mock_calls == [
+            call(self.cls, 'other_resource_path', 'GET'),
+            call(self.cls, 'some_resource_path', 'POST')
+        ]
+
+    def test_generate_endpoint_post(self):
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_api_gateway_resource']['rname'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'parent_id':
+                '${aws_api_gateway_rest_api.rest_api.root_resource_id}',
+            'path_part': 'rname'
+        }
+        expected_conf['output']['rname_path'] = {
+            'value': '${aws_api_gateway_resource.rname.path}'
+        }
+        expected_conf['resource']['aws_api_gateway_method']['rname_POST'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.rname.id}',
+            'http_method': 'POST',
+            'authorization': 'NONE',
+        }
+
+        expected_conf['resource']['aws_api_gateway_method_response'][
+            'rname_POST_202'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'http_method': 'POST',
+            'status_code': 202,
+            'response_models': {
+                'application/json':
+                    '${aws_api_gateway_model.successmessage.name}',
+            }
+        }
+        expected_conf['resource']['aws_api_gateway_method_response'][
+            'rname_POST_500'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'http_method': 'POST',
+            'status_code': 500,
+            'response_models': {
+                'application/json':
+                    '${aws_api_gateway_model.errormessage.name}',
+            }
+        }
+
+        expected_conf['resource']['aws_api_gateway_integration_response'][
+            'rname_POST_successResponse'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'http_method': 'POST',
+            'status_code': 202,
+            'selection_pattern': '.*"success".*'
+        }
+        expected_conf['resource']['aws_api_gateway_integration_response'][
+            'rname_POST_errorResponse'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'http_method': 'POST',
+            'status_code': 500,
+        }
+
+        expected_conf['resource']['aws_api_gateway_integration'][
+        'rname_POST_integration'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'http_method':
+                '${aws_api_gateway_method.rname_POST.http_method}',
+            'type': 'AWS',
+            'uri': 'arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/'
+                   'functions/${aws_lambda_function.lambda_func.arn}'
+                   '/invocations',
+            'credentials': '${aws_iam_role.invoke_role.arn}',
+            'integration_http_method': 'POST',
+            'request_templates': {'foo': 'bar'}
+            # @TODO:
+            # request_parameters_in_json
+            # integrationResponses
+        }
+        with patch('%s.request_model_mapping' % pbm, {'POST': {'foo': 'bar'}}):
+            self.cls._generate_endpoint('rname', 'post')
+        assert self.cls.tf_conf == expected_conf
+
+    def test_generate_endpoint_get(self):
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_api_gateway_resource']['myname'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'parent_id':
+                '${aws_api_gateway_rest_api.rest_api.root_resource_id}',
+            'path_part': 'myname'
+        }
+        expected_conf['output']['myname_path'] = {
+            'value': '${aws_api_gateway_resource.myname.path}'
+        }
+        expected_conf['resource']['aws_api_gateway_method']['myname_GET'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.myname.id}',
+            'http_method': 'GET',
+            'authorization': 'NONE',
+        }
+
+        expected_conf['resource']['aws_api_gateway_method_response'][
+            'myname_GET_202'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.myname.id}',
+            'http_method': 'GET',
+            'status_code': 202,
+            'response_models': {
+                'application/json':
+                    '${aws_api_gateway_model.successmessage.name}',
+            }
+        }
+        expected_conf['resource']['aws_api_gateway_method_response'][
+            'myname_GET_500'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.myname.id}',
+            'http_method': 'GET',
+            'status_code': 500,
+            'response_models': {
+                'application/json':
+                    '${aws_api_gateway_model.errormessage.name}',
+            }
+        }
+
+        expected_conf['resource']['aws_api_gateway_integration_response'][
+            'myname_GET_successResponse'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.myname_GET.id}',
+            'http_method': 'GET',
+            'status_code': 202,
+            'selection_pattern': '.*"success".*'
+        }
+        expected_conf['resource']['aws_api_gateway_integration_response'][
+            'myname_GET_errorResponse'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.myname_GET.id}',
+            'http_method': 'GET',
+            'status_code': 500,
+        }
+
+        expected_conf['resource']['aws_api_gateway_integration'][
+        'myname_GET_integration'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.myname_GET.id}',
+            'http_method':
+                '${aws_api_gateway_method.myname_GET.http_method}',
+            'type': 'AWS',
+            'uri': 'arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/'
+                   'functions/${aws_lambda_function.lambda_func.arn}'
+                   '/invocations',
+            'credentials': '${aws_iam_role.invoke_role.arn}',
+            'integration_http_method': 'POST',
+            'request_templates': {'foo': 'bar'}
+            # @TODO:
+            # request_parameters_in_json
+            # integrationResponses
+        }
+        with patch('%s.request_model_mapping' % pbm, {'GET': {'foo': 'bar'}}):
+            self.cls._generate_endpoint('myname', 'GET')
+        assert self.cls.tf_conf == expected_conf
 
     @freeze_time("2016-07-01 02:03:04")
     def test_write_zip(self):

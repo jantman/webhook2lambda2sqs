@@ -50,6 +50,12 @@ logger = logging.getLogger(__name__)
 
 
 class TerraformGenerator(object):
+    """
+    Generate the Terraform configs for webhook2lambda2sqs.
+
+    All of the _generate_* methods simply add resources to the
+    ``tf_config`` dict.
+    """
 
     def __init__(self, config):
         """
@@ -63,7 +69,18 @@ class TerraformGenerator(object):
             'provider': {
                 'aws': {}
             },
-            'resource': {},
+            'resource': {
+                'aws_api_gateway_integration': {},
+                'aws_api_gateway_integration_response': {},
+                'aws_api_gateway_deployment': {},
+                'aws_api_gateway_method': {},
+                'aws_api_gateway_method_response': {},
+                'aws_api_gateway_resource': {},
+                'aws_api_gateway_rest_api': {},
+                'aws_iam_role': {},
+                'aws_iam_role_policy': {},
+                'aws_lambda_function': {},
+            },
             'output': {}
         }
         self.resource_name = config.func_name
@@ -94,8 +111,9 @@ class TerraformGenerator(object):
 
     def _generate_iam_role_policy(self):
         """
-        Generate the policy for the IAM Role. Used by
-        :py:meth:`~._generate_iam_role`.
+        Generate the policy for the IAM Role.
+
+        Terraform name: aws_iam_role.lambda_role
         """
         pol = {
             "Version": "2012-10-17",
@@ -122,12 +140,19 @@ class TerraformGenerator(object):
                 }
             ]
         }
-        self.tf_conf['resource']['aws_iam_role_policy'] = {}
         self.tf_conf['resource']['aws_iam_role_policy']['role_policy'] = {
             'name': self.resource_name,
             'role': '${aws_iam_role.lambda_role.id}',
             'policy': json.dumps(pol)
         }
+
+    def _generate_iam_invoke_role_policy(self):
+        """
+        Generate the policy for the IAM role used by API Gateway to invoke
+        the lambda function.
+
+        Terraform name: aws_iam_role.invoke_role
+        """
         invoke_pol = {
             "Version": "2012-10-17",
             "Statement": [
@@ -146,8 +171,9 @@ class TerraformGenerator(object):
 
     def _generate_iam_role(self):
         """
-        Generate the IAM Role needed by the Lambda function and add to
-        self.tf_conf
+        Generate the IAM Role needed by the Lambda function.
+
+        Terraform name: aws_iam_role.lambda_role
         """
         pol = {
             "Version": "2012-10-17",
@@ -175,6 +201,14 @@ class TerraformGenerator(object):
             'value': '${aws_iam_role.lambda_role.unique_id}'
         }
 
+    def _generate_iam_invoke_role(self):
+        """
+        Generate the IAM Role for API Gateway to use to invoke the function.
+
+        Terraform name: aws_iam_role.invoke_role
+        :return:
+        """
+
         invoke_assume = {
             "Version": "2012-10-17",
             "Statement": [
@@ -198,13 +232,11 @@ class TerraformGenerator(object):
         self.tf_conf['output']['iam_invoke_role_unique_id'] = {
             'value': '${aws_iam_role.invoke_role.unique_id}'
         }
-        self._generate_iam_role_policy()
 
     def _generate_lambda(self):
         """
         Generate the lambda function and its IAM role, and add to self.tf_conf
         """
-        self.tf_conf['resource']['aws_lambda_function'] = {}
         self.tf_conf['resource']['aws_lambda_function']['lambda_func'] = {
             'filename': 'webhook2lambda2sqs_func.zip',
             'function_name': self.resource_name,
@@ -290,113 +322,21 @@ class TerraformGenerator(object):
         Generate the full configuration for the API Gateway, and add to
         self.tf_conf
         """
-        self._generate_response_models()
-        self.tf_conf['resource']['aws_api_gateway_rest_api'] = {
-            'rest_api': {
-                'name': self.resource_name,
-                'description': self.description
-            }
+        self.tf_conf['resource']['aws_api_gateway_rest_api']['rest_api'] = {
+            'name': self.resource_name,
+            'description': self.description
         }
         self.tf_conf['output']['rest_api_id'] = {
             'value': '${aws_api_gateway_rest_api.rest_api.id}'
         }
-        # @TODO - these should be per-endpoint
-        self.tf_conf['resource']['aws_api_gateway_resource'] = {
-            'res1': {
-                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-                'parent_id':
-                    '${aws_api_gateway_rest_api.rest_api.root_resource_id}',
-                'path_part': 'foo'
-            }
-        }
-        self.tf_conf['output']['res1_path'] = {
-            'value': '${aws_api_gateway_resource.res1.path}'
-        }
-        self.tf_conf['resource']['aws_api_gateway_method'] = {
-            'res1meth1': {
-                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-                'resource_id': '${aws_api_gateway_resource.res1.id}',
-                'http_method': 'POST',
-                'authorization': 'NONE',
-                # @TODO: request_models ?
-                # @TODO: request_parameters_in_json ?
-            }
-        }
-
-        self.tf_conf['resource']['aws_api_gateway_method_response'] = {}
-        self.tf_conf['resource']['aws_api_gateway_method_response'][
-            'res1meth1_202'] = {
-            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.res1.id}',
-            'http_method': 'POST',
-            'status_code': 202,
-            'response_models': {
-                'application/json':
-                    '${aws_api_gateway_model.successmessage.name}',
-            }
-        }
-        self.tf_conf['resource']['aws_api_gateway_method_response'][
-            'res1meth1_500'] = {
-            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.res1.id}',
-            'http_method': 'POST',
-            'status_code': 500,
-            'response_models': {
-                'application/json':
-                    '${aws_api_gateway_model.errormessage.name}',
-            }
-        }
-
-        self.tf_conf['resource']['aws_api_gateway_integration_response'] = {
-            'successResponse': {
-                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-                'resource_id': '${aws_api_gateway_resource.res1.id}',
-                'http_method': 'POST',
-                'status_code': 202,
-                'selection_pattern': '.*"success".*'
-            },
-            'errorResponse': {
-                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-                'resource_id': '${aws_api_gateway_resource.res1.id}',
-                'http_method': 'POST',
-                'status_code': 500,
-            }
-        }
-        # {"status": "success"}
-
-        # https://www.terraform.io/docs/providers/aws/r/api_gateway_integration.html
-        self.tf_conf['resource']['aws_api_gateway_integration'] = {
-            'res1int1': {
-                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-                'resource_id': '${aws_api_gateway_resource.res1.id}',
-                'http_method':
-                    '${aws_api_gateway_method.res1meth1.http_method}',
-                'type': 'AWS',
-                'uri': 'arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/'
-                       'functions/${aws_lambda_function.lambda_func.arn}'
-                       '/invocations',
-                'credentials': self.tf_conf['output'][
-                    'iam_invoke_role_arn']['value'],
-                'integration_http_method':
-                    '${aws_api_gateway_method.res1meth1.http_method}',
-                'request_templates': {
-                    'application/json': request_model_mapping
-                }
-                # request_parameters_in_json
-                # integrationResponses
-            }
-        }
-
         # finally, the deployment
         # note stage_name is also hard-coded in AWSInfo.get_api_base_url
         stage_name = 'webhook2lambda2sqs'
-        self.tf_conf['resource']['aws_api_gateway_deployment'] = {
-            'depl': {
-                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-                'depends_on': ['aws_api_gateway_rest_api.rest_api'],
-                'description': self.description,
-                'stage_name': stage_name
-            }
+        self.tf_conf['resource']['aws_api_gateway_deployment']['depl'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'depends_on': ['aws_api_gateway_rest_api.rest_api'],
+            'description': self.description,
+            'stage_name': stage_name
         }
         """
         @TODO - how to enable cloudwatch logs and metrics?
@@ -448,6 +388,99 @@ class TerraformGenerator(object):
                      'execute-api.%s.amazonaws.com/%s/' % (self.aws_region,
                                                            stage_name)
         }
+        # generate the endpoint configs
+        endpoints = self.config.get('endpoints')
+        for ep in sorted(endpoints.keys()):
+            self._generate_endpoint(ep, endpoints[ep]['method'])
+
+    def _generate_endpoint(self, ep_name, ep_method):
+        """
+        Generate configuration for a single endpoint (this is many resources)
+
+        Terraform Names:
+
+        - aws_api_gateway_resource: {ep_name}
+        - aws_api_gateway_method: {ep_name}_{ep_method}
+
+        :param ep_name: endpoint name (path component)
+        :type ep_name: str
+        :param ep_method: HTTP method for the endpoint
+        :type ep_method: str
+        """
+        ep_method = ep_method.upper()
+        self.tf_conf['resource']['aws_api_gateway_resource'][ep_name] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'parent_id':
+                '${aws_api_gateway_rest_api.rest_api.root_resource_id}',
+            'path_part': ep_name
+        }
+        self.tf_conf['output']['%s_path' % ep_name] = {
+            'value': '${aws_api_gateway_resource.%s.path}' % ep_name
+        }
+        self.tf_conf['resource']['aws_api_gateway_method'][
+            '%s_%s' % (ep_name, ep_method)] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
+            'http_method': ep_method,
+            'authorization': 'NONE',
+            # @TODO: request_models ?
+            # @TODO: request_parameters_in_json ?
+        }
+        self.tf_conf['resource']['aws_api_gateway_method_response'][
+            '%s_%s_202' % (ep_name, ep_method)] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
+            'http_method': ep_method,
+            'status_code': 202,
+            'response_models': {
+                'application/json':
+                    '${aws_api_gateway_model.successmessage.name}',
+            }
+        }
+        self.tf_conf['resource']['aws_api_gateway_method_response'][
+            '%s_%s_500' % (ep_name, ep_method)] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
+            'http_method': ep_method,
+            'status_code': 500,
+            'response_models': {
+                'application/json':
+                    '${aws_api_gateway_model.errormessage.name}',
+            }
+        }
+
+        self.tf_conf['resource']['aws_api_gateway_integration_response'][
+            'successResponse'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
+            'http_method': ep_method,
+            'status_code': 202,
+            'selection_pattern': '.*"success".*'
+        }
+        self.tf_conf['resource']['aws_api_gateway_integration_response'][
+            'errorResponse'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
+            'http_method': ep_method,
+            'status_code': 500,
+        }
+
+        self.tf_conf['resource']['aws_api_gateway_integration'][
+            '%s_%s_integration' % (ep_name, ep_method)] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
+            'http_method': ep_method,
+            'type': 'AWS',
+            'uri': 'arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/'
+                   'functions/${aws_lambda_function.lambda_func.arn}'
+                   '/invocations',
+            'credentials': '${aws_iam_role.invoke_role.arn}',
+            'integration_http_method': 'POST',
+            'request_templates': request_model_mapping[ep_method]
+            # @TODO:
+            # request_parameters_in_json
+            # integrationResponses
+        }
 
     def _get_config(self, func_src):
         """
@@ -460,7 +493,11 @@ class TerraformGenerator(object):
         """
         self._set_account_info()
         self._generate_iam_role()
+        self._generate_iam_role_policy()
+        self._generate_iam_invoke_role()
+        self._generate_iam_invoke_role_policy()
         self._generate_lambda()
+        self._generate_response_models()
         self._generate_api_gateway()
         return pretty_json(self.tf_conf)
 

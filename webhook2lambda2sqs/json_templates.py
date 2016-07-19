@@ -37,7 +37,9 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 
-request_model_mapping = """##  See http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+request_model_mapping = {
+    'POST': {
+        'application/json': """##  See http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
 ##  This template will pass through all parameters including path, querystring, header, stage variables, and context through to the integration endpoint via the body/payload
 #set($allParams = $input.params())
 {
@@ -81,3 +83,5 @@ request_model_mapping = """##  See http://docs.aws.amazon.com/apigateway/latest/
     "resource-path" : "$context.resourcePath"
     }
 }"""
+    }
+}

@@ -49,9 +49,13 @@ class Config(object):
     _example = {
         'name_suffix': 'something',
         'endpoints': {
-            'some_resource_name': {
+            'some_resource_path': {
                 'method': 'POST',
                 'queues': ['queueName1', 'queueName2']
+            },
+            'other_resource_path': {
+                'method': 'GET',
+                'queues': ['queuename2', 'queuename3']
             }
         },
         'terraform_remote_state': {
