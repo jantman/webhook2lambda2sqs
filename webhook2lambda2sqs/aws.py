@@ -81,7 +81,7 @@ class AWSInfo(object):
         number of events shown.
 
         :param conn: AWS Logs API connection
-        :type conn: botocore.client.CloudWatchLogs
+        :type conn: :py:class:`botocore:CloudWatchLogs.Client`
         :param grp_name: log group name
         :type grp_name: str
         :param stream_name: log stream name
@@ -117,7 +117,7 @@ class AWSInfo(object):
         Given a queue name, return the URL for it.
 
         :param conn: SQS API connection
-        :type conn: botocore.client.SQS
+        :type conn: :py:class:`botocore:SQS.Client`
         :param name: queue name, or None for all queues in config.
         :type name: str
         :return: queue URL
@@ -132,7 +132,7 @@ class AWSInfo(object):
         specified by ``queue_url``.
 
         :param conn: SQS API connection
-        :type conn: botocore.client.SQS
+        :type conn: :py:class:`botocore:SQS.Client`
         :param queue_url: queue URL to delete the message from
         :type queue_url: str
         :param receipt_handle: message receipt handle
@@ -154,7 +154,7 @@ class AWSInfo(object):
         Show ``count`` messages from the specified SQS queue.
 
         :param conn: SQS API connection
-        :type conn: botocore.client.SQS
+        :type conn: :py:class:`botocore:SQS.Client`
         :param name: queue name, or None for all queues in config.
         :type name: str
         :param count: maximum number of messages to get from queue

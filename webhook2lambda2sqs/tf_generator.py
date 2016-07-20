@@ -510,7 +510,7 @@ class TerraformGenerator(object):
         the execute bit set on the module with the handler in it (i.e. 0755
         or 0555 permissions). There doesn't seem to be *any* documentation on
         how to do this in the Python docs. The only real hint comes from the
-        source code of :py:meth:`zipfile.ZipInfo.from_file`, which includes:
+        source code of ``zipfile.ZipInfo.from_file()``, which includes:
 
             st = os.stat(filename)
             ...

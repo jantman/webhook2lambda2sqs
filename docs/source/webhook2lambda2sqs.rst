@@ -11,8 +11,11 @@ Submodules
 
 .. toctree::
 
+   webhook2lambda2sqs.aws
    webhook2lambda2sqs.config
    webhook2lambda2sqs.func_generator
+   webhook2lambda2sqs.json_templates
+   webhook2lambda2sqs.lambda_func
    webhook2lambda2sqs.runner
    webhook2lambda2sqs.terraform_runner
    webhook2lambda2sqs.tf_generator
