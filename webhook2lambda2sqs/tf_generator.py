@@ -450,7 +450,7 @@ class TerraformGenerator(object):
         }
 
         self.tf_conf['resource']['aws_api_gateway_integration_response'][
-            'successResponse'] = {
+            '%s_%s_successResponse' % (ep_name, ep_method)] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,
@@ -458,7 +458,7 @@ class TerraformGenerator(object):
             'selection_pattern': '.*"success".*'
         }
         self.tf_conf['resource']['aws_api_gateway_integration_response'][
-            'errorResponse'] = {
+            '%s_%s_errorResponse' % (ep_name, ep_method)] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,

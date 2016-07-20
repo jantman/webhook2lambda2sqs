@@ -466,7 +466,7 @@ class TestTerraformGenerator(object):
         expected_conf['resource']['aws_api_gateway_method_response'][
             'rname_POST_202'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'resource_id': '${aws_api_gateway_resource.rname.id}',
             'http_method': 'POST',
             'status_code': 202,
             'response_models': {
@@ -477,7 +477,7 @@ class TestTerraformGenerator(object):
         expected_conf['resource']['aws_api_gateway_method_response'][
             'rname_POST_500'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'resource_id': '${aws_api_gateway_resource.rname.id}',
             'http_method': 'POST',
             'status_code': 500,
             'response_models': {
@@ -489,7 +489,7 @@ class TestTerraformGenerator(object):
         expected_conf['resource']['aws_api_gateway_integration_response'][
             'rname_POST_successResponse'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'resource_id': '${aws_api_gateway_resource.rname.id}',
             'http_method': 'POST',
             'status_code': 202,
             'selection_pattern': '.*"success".*'
@@ -497,17 +497,16 @@ class TestTerraformGenerator(object):
         expected_conf['resource']['aws_api_gateway_integration_response'][
             'rname_POST_errorResponse'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
+            'resource_id': '${aws_api_gateway_resource.rname.id}',
             'http_method': 'POST',
             'status_code': 500,
         }
 
         expected_conf['resource']['aws_api_gateway_integration'][
-        'rname_POST_integration'] = {
+            'rname_POST_integration'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.rname_POST.id}',
-            'http_method':
-                '${aws_api_gateway_method.rname_POST.http_method}',
+            'resource_id': '${aws_api_gateway_resource.rname.id}',
+            'http_method': 'POST',
             'type': 'AWS',
             'uri': 'arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/'
                    'functions/${aws_lambda_function.lambda_func.arn}'
@@ -567,7 +566,7 @@ class TestTerraformGenerator(object):
         expected_conf['resource']['aws_api_gateway_integration_response'][
             'myname_GET_successResponse'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.myname_GET.id}',
+            'resource_id': '${aws_api_gateway_resource.myname.id}',
             'http_method': 'GET',
             'status_code': 202,
             'selection_pattern': '.*"success".*'
@@ -575,17 +574,16 @@ class TestTerraformGenerator(object):
         expected_conf['resource']['aws_api_gateway_integration_response'][
             'myname_GET_errorResponse'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.myname_GET.id}',
+            'resource_id': '${aws_api_gateway_resource.myname.id}',
             'http_method': 'GET',
             'status_code': 500,
         }
 
         expected_conf['resource']['aws_api_gateway_integration'][
-        'myname_GET_integration'] = {
+            'myname_GET_integration'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.myname_GET.id}',
-            'http_method':
-                '${aws_api_gateway_method.myname_GET.http_method}',
+            'resource_id': '${aws_api_gateway_resource.myname.id}',
+            'http_method': 'GET',
             'type': 'AWS',
             'uri': 'arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/'
                    'functions/${aws_lambda_function.lambda_func.arn}'
