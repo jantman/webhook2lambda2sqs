@@ -85,3 +85,6 @@ request_model_mapping = {
 }"""
     }
 }
+
+# @TODO - does this work?
+request_model_mapping['GET'] = request_model_mapping['POST']
