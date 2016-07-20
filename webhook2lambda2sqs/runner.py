@@ -43,6 +43,7 @@ import logging
 from platform import node
 from datetime import datetime
 import requests
+from pprint import pformat
 
 from webhook2lambda2sqs.version import PROJECT_URL, VERSION
 from webhook2lambda2sqs.config import Config
@@ -201,11 +202,13 @@ def get_base_url(config, args):
         runner = TerraformRunner(config, args.tf_path)
         outputs = runner._get_outputs()
         base_url = outputs['base_url']
+        logger.debug("Terraform base_url output: '%s'", base_url)
     except Exception:
         logger.info('Unable to find API base_url from Terraform state; '
                     'querying AWS.', exc_info=1)
         aws = AWSInfo(config)
         base_url = aws.get_api_base_url()
+        logger.debug("AWS api_base_url: '%s'", base_url)
     if not base_url.endswith('/'):
         base_url += '/'
     return base_url
@@ -224,23 +227,28 @@ def run_test(config, args):
     logger.debug('API base url: %s', base_url)
     endpoints = config.get('endpoints')
     if args.endpoint_name is not None:
-        endpoints = [endpoints[args.endpoint_name]]
-    for ep in endpoints:
-        dt = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
-        data = {
-            'message': 'testing via webhook2lambda2sqs CLI',
-            'version': VERSION,
-            'host': node(),
-            'datetime': dt
+        endpoints = {
+            args.endpoint_name: endpoints[args.endpoint_name]
         }
+    dt = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f')
+    data = {
+        'message': 'testing via webhook2lambda2sqs CLI',
+        'version': VERSION,
+        'host': node(),
+        'datetime': dt
+    }
+    for ep in sorted(endpoints):
         url = base_url + ep + '/'
         print('=> Testing endpoint %s with %s: %s' % (
-            url, endpoints[ep]['method'], data)
+            url, endpoints[ep]['method'], pformat(data))
         )
         if endpoints[ep]['method'] == 'POST':
             res = requests.post(url, json=data)
         elif endpoints[ep]['method'] == 'GET':
             res = requests.get(url, params=data)
+        else:
+            raise Exception('Unimplemented method: %s'
+                            '' % endpoints[ep]['method'])
         print('RESULT: HTTP %d' % res.status_code)
         for h in sorted(res.headers):
             print('%s: %s' % (h, res.headers[h]))

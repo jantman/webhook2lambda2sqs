@@ -39,9 +39,13 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import logging
 import pytest
+from requests.models import Response
+from pprint import pformat
+from freezegun import freeze_time
 
 from webhook2lambda2sqs.runner import (main, parse_args, set_log_info,
-                                       set_log_debug, set_log_level_format)
+                                       set_log_debug, set_log_level_format,
+                                       get_base_url, run_test)
 from webhook2lambda2sqs.version import PROJECT_URL, VERSION
 
 # https://code.google.com/p/mock/issues/detail?id=249
@@ -73,7 +77,8 @@ class TestRunner(object):
                 LambdaFuncGenerator=DEFAULT,
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
-                parse_args=DEFAULT
+                parse_args=DEFAULT,
+                run_test=DEFAULT
             ) as mocks:
                 mocks['Config'].example_config.return_value = (
                     'config-ex', 'config-docs')
@@ -108,7 +113,8 @@ class TestRunner(object):
                 LambdaFuncGenerator=DEFAULT,
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
-                parse_args=DEFAULT
+                parse_args=DEFAULT,
+                run_test=DEFAULT
             ) as mocks:
                 mocks['Config'].example_config.return_value = (
                     'config-ex', 'config-docs')
@@ -143,7 +149,8 @@ class TestRunner(object):
                 LambdaFuncGenerator=DEFAULT,
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
-                parse_args=DEFAULT
+                parse_args=DEFAULT,
+                run_test=DEFAULT
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 mocks['LambdaFuncGenerator'
@@ -182,7 +189,8 @@ class TestRunner(object):
                 LambdaFuncGenerator=DEFAULT,
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
-                parse_args=DEFAULT
+                parse_args=DEFAULT,
+                run_test=DEFAULT
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 mocks['LambdaFuncGenerator'
@@ -224,7 +232,8 @@ class TestRunner(object):
                 LambdaFuncGenerator=DEFAULT,
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
-                parse_args=DEFAULT
+                parse_args=DEFAULT,
+                run_test=DEFAULT
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -258,7 +267,8 @@ class TestRunner(object):
                 LambdaFuncGenerator=DEFAULT,
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
-                parse_args=DEFAULT
+                parse_args=DEFAULT,
+                run_test=DEFAULT
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -292,7 +302,8 @@ class TestRunner(object):
                 LambdaFuncGenerator=DEFAULT,
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
-                parse_args=DEFAULT
+                parse_args=DEFAULT,
+                run_test=DEFAULT
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -326,7 +337,8 @@ class TestRunner(object):
                 LambdaFuncGenerator=DEFAULT,
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
-                parse_args=DEFAULT
+                parse_args=DEFAULT,
+                run_test=DEFAULT
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -340,6 +352,40 @@ class TestRunner(object):
         assert mocks['AWSInfo'].mock_calls == [
             call(mocks['Config'].return_value),
             call().show_queue(name='foo', delete=True, count=2)
+        ]
+        assert mocklogger.mock_calls == []
+
+    def test_main_test(self):
+        """
+        test main function
+        """
+
+        mock_args = Mock(verbose=0, action='test', config='cpath')
+        with patch('%s.logger' % pbm, autospec=True) as mocklogger:
+            with patch.multiple(
+                pbm,
+                Config=DEFAULT,
+                AWSInfo=DEFAULT,
+                set_log_info=DEFAULT,
+                set_log_debug=DEFAULT,
+                LambdaFuncGenerator=DEFAULT,
+                TerraformGenerator=DEFAULT,
+                TerraformRunner=DEFAULT,
+                parse_args=DEFAULT,
+                run_test=DEFAULT
+            ) as mocks:
+                mocks['Config'].example_config.return_value = 'config-ex'
+                main(mock_args)
+        assert mocks['Config'].mock_calls == [call('cpath')]
+        assert mocks['set_log_info'].mock_calls == []
+        assert mocks['set_log_debug'].mock_calls == []
+        assert mocks['LambdaFuncGenerator'].mock_calls == []
+        assert mocks['TerraformGenerator'].mock_calls == []
+        assert mocks['TerraformRunner'].mock_calls == []
+        assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['run_test'].mock_calls == [
+            call(mocks['Config'].return_value, mock_args)
         ]
         assert mocklogger.mock_calls == []
 
@@ -461,3 +507,229 @@ class TestRunner(object):
         assert mock_logger.mock_calls == [
             call.setLevel(5)
         ]
+
+    def test_get_base_url_tf(self):
+        conf = Mock()
+        args = Mock(tf_path='tfpath')
+        with patch.multiple(
+            pbm,
+            autospec=True,
+            logger=DEFAULT,
+            TerraformRunner=DEFAULT,
+            AWSInfo=DEFAULT
+        ) as mocks:
+            mocks['TerraformRunner'].return_value._get_outputs.return_value = {
+                'base_url': 'mytfbase'
+            }
+            res = get_base_url(conf, args)
+        assert res == 'mytfbase/'
+        assert mocks['TerraformRunner'].mock_calls == [
+            call(conf, 'tfpath'),
+            call()._get_outputs()
+        ]
+        assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['logger'].mock_calls == [
+            call.debug('Trying to get Terraform base_url output'),
+            call.debug('Terraform base_url output: \'%s\'', 'mytfbase')
+        ]
+
+    def test_get_base_url_aws(self):
+
+        def se_exc(*args, **kwargs):
+            raise Exception()
+
+        conf = Mock()
+        args = Mock(tf_path='tfpath')
+        with patch.multiple(
+            pbm,
+            autospec=True,
+            logger=DEFAULT,
+            TerraformRunner=DEFAULT,
+            AWSInfo=DEFAULT
+        ) as mocks:
+            mocks['TerraformRunner'].return_value._get_outputs.side_effect = \
+                se_exc
+            mocks['AWSInfo'].return_value.get_api_base_url.return_value = 'au/'
+            res = get_base_url(conf, args)
+        assert res == 'au/'
+        assert mocks['TerraformRunner'].mock_calls == [
+            call(conf, 'tfpath'),
+            call()._get_outputs()
+        ]
+        assert mocks['AWSInfo'].mock_calls == [
+            call(conf),
+            call().get_api_base_url()
+        ]
+        assert mocks['logger'].mock_calls == [
+            call.debug('Trying to get Terraform base_url output'),
+            call.info('Unable to find API base_url from Terraform state; '
+                      'querying AWS.', exc_info=1),
+            call.debug('AWS api_base_url: \'%s\'', 'au/')
+        ]
+
+    @freeze_time("2016-07-01 02:03:04")
+    def test_run_test(self, capsys):
+        conf = Mock()
+        conf.get.return_value = {
+            'ep1': {'method': 'GET'},
+            'ep2': {'method': 'POST'}
+        }
+        args = Mock(endpoint_name=None)
+        res1 = Mock(spec_set=Response)
+        type(res1).status_code = 200
+        type(res1).content = 'res1content'
+        type(res1).headers = {
+            'h1': 'h1val',
+            'hz': 'hzval'
+        }
+        res2 = Mock(spec_set=Response)
+        type(res2).status_code = 503
+        type(res2).content = 'res2content'
+        type(res2).headers = {
+            'h21': 'h21val',
+            'h2z': 'h2zval'
+        }
+
+        req_data = {
+            'message': 'testing via webhook2lambda2sqs CLI',
+            'version': VERSION,
+            'host': 'mynode',
+            'datetime': '2016-07-01T02:03:04.000000'
+        }
+
+        with patch.multiple(
+            pbm,
+            autospec=True,
+            requests=DEFAULT,
+            logger=DEFAULT,
+            get_base_url=DEFAULT,
+            node=DEFAULT
+        ) as mocks:
+            mocks['get_base_url'].return_value = 'mybase/'
+            mocks['node'].return_value = 'mynode'
+            mocks['requests'].get.return_value = res1
+            mocks['requests'].post.return_value = res2
+            run_test(conf, args)
+        out, err = capsys.readouterr()
+        assert err == ''
+        expected_out = "=> Testing endpoint mybase/ep1/ with GET: "
+        expected_out += pformat(req_data) + "\n"
+        expected_out += "RESULT: HTTP 200\n"
+        expected_out += "h1: h1val\n"
+        expected_out += "hz: hzval\n"
+        expected_out += "\nres1content\n\n"
+        expected_out += "=> Testing endpoint mybase/ep2/ with POST: "
+        expected_out += pformat(req_data) + "\n"
+        expected_out += "RESULT: HTTP 503\n"
+        expected_out += "h21: h21val\n"
+        expected_out += "h2z: h2zval\n"
+        expected_out += "\nres2content\n\n"
+        assert out == expected_out
+        assert conf.mock_calls == [call.get('endpoints')]
+        assert mocks['get_base_url'].mock_calls == [call(conf, args)]
+        assert mocks['logger'].mock_calls == [
+            call.debug('API base url: %s', 'mybase/')
+        ]
+        assert mocks['requests'].mock_calls == [
+            call.get('mybase/ep1/', params={
+                'message': 'testing via webhook2lambda2sqs CLI',
+                'version': '0.1.0',
+                'host': 'mynode',
+                'datetime': '2016-07-01T02:03:04.000000'
+            }),
+            call.post('mybase/ep2/', json={
+                'message': 'testing via webhook2lambda2sqs CLI',
+                'version': '0.1.0',
+                'host': 'mynode',
+                'datetime': '2016-07-01T02:03:04.000000'
+            })
+        ]
+        assert mocks['node'].mock_calls == [call()]
+
+    @freeze_time("2016-07-01 02:03:04")
+    def test_run_test_one(self, capsys):
+        conf = Mock()
+        conf.get.return_value = {
+            'ep1': {'method': 'GET'}
+        }
+        args = Mock(endpoint_name='ep1')
+        res1 = Mock(spec_set=Response)
+        type(res1).status_code = 200
+        type(res1).content = 'res1content'
+        type(res1).headers = {
+            'h1': 'h1val',
+            'hz': 'hzval'
+        }
+
+        req_data = {
+            'message': 'testing via webhook2lambda2sqs CLI',
+            'version': VERSION,
+            'host': 'mynode',
+            'datetime': '2016-07-01T02:03:04.000000'
+        }
+
+        with patch.multiple(
+            pbm,
+            autospec=True,
+            requests=DEFAULT,
+            logger=DEFAULT,
+            get_base_url=DEFAULT,
+            node=DEFAULT
+        ) as mocks:
+            mocks['get_base_url'].return_value = 'mybase/'
+            mocks['node'].return_value = 'mynode'
+            mocks['requests'].get.return_value = res1
+            run_test(conf, args)
+        out, err = capsys.readouterr()
+        assert err == ''
+        expected_out = "=> Testing endpoint mybase/ep1/ with GET: "
+        expected_out += pformat(req_data) + "\n"
+        expected_out += "RESULT: HTTP 200\n"
+        expected_out += "h1: h1val\n"
+        expected_out += "hz: hzval\n"
+        expected_out += "\nres1content\n\n"
+        assert out == expected_out
+        assert conf.mock_calls == [call.get('endpoints')]
+        assert mocks['get_base_url'].mock_calls == [call(conf, args)]
+        assert mocks['logger'].mock_calls == [
+            call.debug('API base url: %s', 'mybase/')
+        ]
+        assert mocks['requests'].mock_calls == [
+            call.get('mybase/ep1/', params={
+                'message': 'testing via webhook2lambda2sqs CLI',
+                'version': '0.1.0',
+                'host': 'mynode',
+                'datetime': '2016-07-01T02:03:04.000000'
+            })
+        ]
+        assert mocks['node'].mock_calls == [call()]
+
+    @freeze_time("2016-07-01 02:03:04")
+    def test_run_test_bad_method(self, capsys):
+        conf = Mock()
+        conf.get.return_value = {
+            'ep1': {'method': 'FOO'}
+        }
+        args = Mock(endpoint_name='ep1')
+        res1 = Mock(spec_set=Response)
+        type(res1).status_code = 200
+        type(res1).content = 'res1content'
+        type(res1).headers = {
+            'h1': 'h1val',
+            'hz': 'hzval'
+        }
+
+        with patch.multiple(
+            pbm,
+            autospec=True,
+            requests=DEFAULT,
+            logger=DEFAULT,
+            get_base_url=DEFAULT,
+            node=DEFAULT
+        ) as mocks:
+            mocks['get_base_url'].return_value = 'mybase/'
+            mocks['node'].return_value = 'mynode'
+            mocks['requests'].get.return_value = res1
+            with pytest.raises(Exception) as excinfo:
+                run_test(conf, args)
+        assert excinfo.value.message == 'Unimplemented method: FOO'

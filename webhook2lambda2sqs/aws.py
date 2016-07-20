@@ -242,7 +242,7 @@ class AWSInfo(object):
                 logger.debug('Found API id: %s', api_id)
                 break
         if api_id is None:
-            raise Exception('Unable to find ReST API named %s',
+            raise Exception('Unable to find ReST API named %s' %
                             self.config.func_name)
         return 'https://%s.execute-api.%s.amazonaws.com/%s/' % (
             api_id, conn._client_config.region_name, 'webhook2lambda2sqs'

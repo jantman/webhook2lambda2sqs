@@ -72,7 +72,7 @@ class TestTerraformRunner(object):
         assert cls.tf_path == 'mypath'
         assert mock_validate.mock_calls == [call(cls)]
 
-    def DONTtest_init_version_fail(self):
+    def test_init_version_fail(self):
 
         def se_exc(*args):
             raise Exception('foo')
@@ -296,6 +296,18 @@ class TestTerraformRunner(object):
             call.debug('Terraform state: %s', state)
         ]
 
+    def test_show_outputs(self, capsys):
+        outs = {'a': 'b', 'foo': 'bar'}
+        with patch('%s._get_outputs' % pb, autospec=True) as mock_get:
+            mock_get.return_value = outs
+            with patch('%s._validate' % pb):
+                cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+                cls._show_outputs()
+        assert mock_get.mock_calls == [call(cls)]
+        out, err = capsys.readouterr()
+        assert err == ''
+        assert out == "\n\n=> Terraform Outputs:\na = b\nfoo = bar\n"
+
     def test_get_outputs_exception(self):
 
         def se_exc(fpath):
@@ -376,16 +388,22 @@ class TestTerraformRunner(object):
     def test_validate(self):
 
         def se_run(*args, **kwargs):
+            if args[1] == 'version':
+                return "Terraform v1.2.3\nfoo\n"
             return
 
-        with patch('%s._validate' % pb):
-            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        # validate is called in __init__; we can't easily patch and re-call
         with patch('%s._run_tf' % pb, autospec=True) as mock_run:
             mock_run.side_effect = se_run
-            cls._validate()
+            with patch('%s.logger' % pbm) as mock_logger:
+                cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         assert mock_run.mock_calls == [
             call(cls, 'version'),
             call(cls, 'validate', ['.'])
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('Terraform version: maj=%s min=%s patch=%s',
+                       1, 2, 3),
         ]
 
     def test_validate_version_fail(self):
@@ -408,8 +426,52 @@ class TestTerraformRunner(object):
                                         '(terraform-bin) correct?'
         assert mock_logger.mock_calls == []
 
+    def test_validate_version_no_re_match(self):
+        def se_run(*args, **kwargs):
+            if args[1] == 'version':
+                return 'foo bar'
+
+        # validate is called in __init__; we can't easily patch and re-call
+        with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+            mock_run.side_effect = se_run
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        assert mock_run.mock_calls == [
+            call(cls, 'version')
+        ]
+        assert mock_logger.mock_calls == [
+            call.error('Unable to determine terraform version; will not '
+                       'validate config.')
+        ]
+
+    def test_validate_old_version(self):
+
+        def se_run(*args, **kwargs):
+            print(args)
+            if args[1] == 'version':
+                return "Terraform v0.6.3\nfoo\n"
+            return
+
+        # validate is called in __init__; we can't easily patch and re-call
+        with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+            mock_run.side_effect = se_run
+            with patch('%s.logger' % pbm) as mock_logger:
+                cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        assert mock_logger.mock_calls == [
+            call.debug('Terraform version: maj=%s min=%s patch=%s', 0, 6, 3),
+            call.warning('Terraform config validation requires terraform '
+                         '>= 0.6.12, but you are running %s.%s.%s. Config '
+                         'validation will not be performed', 0, 6, 3)
+        ]
+        assert mock_run.mock_calls == [
+            call(cls, 'version')
+        ]
+
     def test_validate_fail(self):
         def se_run(*args, **kwargs):
+            print(args)
+            if args[0] == 'version':
+                return "Terraform v1.2.3\nfoo\n"
             if args[0] == 'validate':
                 raise Exception()
 
@@ -419,13 +481,15 @@ class TestTerraformRunner(object):
             with patch('%s.logger' % pbm, autospec=True) as mock_logger:
                 with pytest.raises(Exception) as excinfo:
                     TerraformRunner(self.mock_config(), 'terraform-bin')
+        assert excinfo.value.message == 'ERROR: Terraform config validation ' \
+                                        'failed.'
         assert mock_run.mock_calls == [
             call('version'),
             call('validate', ['.'])
         ]
-        assert excinfo.value.message == 'ERROR: Terraform config validation ' \
-                                        'failed.'
         assert mock_logger.mock_calls == [
+            call.debug('Terraform version: maj=%s min=%s patch=%s',
+                       1, 2, 3),
             call.critical("Terraform config validation failed. This is almost "
                           "certainly a bug in webhook2lambda2sqs; please "
                           "re-run with '-vv' and open a bug at <https://"

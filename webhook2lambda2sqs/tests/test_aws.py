@@ -420,3 +420,52 @@ class TestAWSInfo(object):
         assert conn.mock_calls == [
             call.get_queue_url(QueueName='foo')
         ]
+
+    def test_get_api_base_url(self):
+        mock_conf = Mock(region_name='myrname')
+        apis = {
+            'items': [
+                {'name': 'foo', 'id': 'apiid1'},
+                {'name': 'myfname', 'id': 'apiid2'},
+                {'name': 'bar', 'id': 'apiid3'},
+            ]
+        }
+        with patch('%s.client' % pbm, autospec=True) as mock_client:
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                mock_client.return_value.get_rest_apis.return_value = apis
+                type(mock_client.return_value)._client_config = mock_conf
+                res = self.cls.get_api_base_url()
+        assert res == 'https://apiid2.execute-api.myrname.amazonaws.com/' \
+                      'webhook2lambda2sqs/'
+        assert mock_client.mock_calls == [
+            call('apigateway'),
+            call().get_rest_apis()
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('Connecting to AWS apigateway API'),
+            call.debug('Found API id: %s', 'apiid2')
+        ]
+
+    def test_get_api_base_url_exception(self):
+        mock_conf = Mock(region_name='myrname')
+        apis = {
+            'items': [
+                {'name': 'foo', 'id': 'apiid1'},
+                {'name': 'baz', 'id': 'apiid2'},
+                {'name': 'bar', 'id': 'apiid3'},
+            ]
+        }
+        with patch('%s.client' % pbm, autospec=True) as mock_client:
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                mock_client.return_value.get_rest_apis.return_value = apis
+                type(mock_client.return_value)._client_config = mock_conf
+                with pytest.raises(Exception) as excinfo:
+                    self.cls.get_api_base_url()
+        assert excinfo.value.message == 'Unable to find ReST API named myfname'
+        assert mock_client.mock_calls == [
+            call('apigateway'),
+            call().get_rest_apis()
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('Connecting to AWS apigateway API')
+        ]

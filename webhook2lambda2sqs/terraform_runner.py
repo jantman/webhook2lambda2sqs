@@ -38,6 +38,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import logging
 from webhook2lambda2sqs.utils import run_cmd, read_json_file
 import os
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +66,27 @@ class TerraformRunner(object):
         and then validate the configuration.
         """
         try:
-            self._run_tf('version')
+            out = self._run_tf('version')
         except:
             raise Exception('ERROR: executing \'%s version\' failed; is '
                             'terraform installed and is the path to it (%s) '
                             'correct?' % (self.tf_path, self.tf_path))
+        res = re.search(r'Terraform v(\d+)\.(\d+)\.(\d+)', out)
+        if res is None:
+            logger.error('Unable to determine terraform version; will not '
+                         'validate config.')
+            return
+        maj_v = int(res.group(1))
+        min_v = int(res.group(2))
+        patch_v = int(res.group(3))
+        logger.debug('Terraform version: maj=%s min=%s patch=%s', maj_v, min_v,
+                     patch_v)
+        if maj_v == 0 and ((min_v < 6) or (min_v == 6 and patch_v < 12)):
+            logger.warning('Terraform config validation requires terraform '
+                           '>= 0.6.12, but you are running %s.%s.%s. Config '
+                           'validation will not be performed', maj_v, min_v,
+                           patch_v)
+            return
         try:
             self._run_tf('validate', ['.'])
         except:
