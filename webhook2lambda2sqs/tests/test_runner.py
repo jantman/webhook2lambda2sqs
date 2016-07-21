@@ -399,6 +399,18 @@ class TestRunner(object):
         assert 'too few arguments' in err
         assert out == ''
 
+    def test_parse_args_None_action_py27(self, capsys):
+        """this just exists to get coverage to pass on py27"""
+        m_args = Mock(action=None)
+        with pytest.raises(SystemExit) as excinfo:
+            with patch('%s.argparse.ArgumentParser' % pbm) as mock_parser:
+                mock_parser.return_value.parse_args.return_value = m_args
+                parse_args([])
+        out, err = capsys.readouterr()
+        assert out == ''
+        assert err == "ERROR: too few arguments\n"
+        assert excinfo.value.code == 2
+
     def test_parse_args_actions(self):
         for action in ['generate', 'example-config', 'logs', 'queuepeek',
                        'test']:
@@ -472,11 +484,16 @@ class TestRunner(object):
         with pytest.raises(SystemExit) as excinfo:
             parse_args(['-V'])
         assert excinfo.value.code == 0
-        out, err = capsys.readouterr()
-        assert out == ''
-        assert err == "webhook2lambda2sqs v%s <%s>\n" % (
+        expected = "webhook2lambda2sqs v%s <%s>\n" % (
             VERSION, PROJECT_URL
         )
+        out, err = capsys.readouterr()
+        if sys.version_info[0] < 3:
+            assert out == ''
+            assert err == expected
+        else:
+            assert out == expected
+            assert err == ''
 
     def test_set_log_info(self):
         with patch('%s.set_log_level_format' % pbm) as mock_set:

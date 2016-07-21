@@ -153,7 +153,12 @@ def parse_args(argv):
         'example-config', help='write example config to STDOUT and description '
                                'of it to STDERR, then exit'
     )
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if args.action is None:
+        # for py3, which doesn't raise on this
+        sys.stderr.write("ERROR: too few arguments\n")
+        raise SystemExit(2)
+    return args
 
 
 def set_log_info():
