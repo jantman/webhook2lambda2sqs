@@ -36,6 +36,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 import sys
 import pytest
+import json
 
 from webhook2lambda2sqs.terraform_runner import TerraformRunner
 from webhook2lambda2sqs.tests.support import exc_msg
@@ -71,6 +72,7 @@ class TestTerraformRunner(object):
             cls = TerraformRunner(c, 'mypath')
         assert cls.config == c
         assert cls.tf_path == 'mypath'
+        assert cls.tf_version == (999, 999, 999)
         assert mock_validate.mock_calls == [call(cls)]
 
     def test_init_version_fail(self):
@@ -263,7 +265,7 @@ class TestTerraformRunner(object):
         ]
         assert mock_show.mock_calls == [call(cls)]
 
-    def test_get_outputs(self):
+    def test_get_outputs_pre0point7(self):
         resp = "base_url = https://ljgx260ix7.execute-api.us-east-1.ama/bar/\n"
         resp += "arn = arn:aws:iam::1234567890:role/foo\n"
         resp += "foobar = foo = bar = baz.w32\n\n"
@@ -274,12 +276,34 @@ class TestTerraformRunner(object):
         }
         with patch('%s._validate' % pb):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+            cls.tf_version = (0, 6, 16)
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._run_tf' % pb, autospec=True) as mock_run:
                 mock_run.return_value = resp
                 res = cls._get_outputs()
         assert res == expected
         assert mock_run.mock_calls == [call(cls, 'output')]
+        assert mock_logger.mock_calls == [
+            call.debug('Running: terraform output'),
+            call.debug('Terraform outputs: %s', expected)
+        ]
+
+    def test_get_outputs_0point7plus(self):
+        expected = {
+            'base_url': 'https://ljgx260ix7.execute-api.us-east-1.ama/bar/',
+            'arn': 'arn:aws:iam::1234567890:role/foo',
+            'foobar': 'foo = bar = baz.w32'
+        }
+        resp = json.dumps(expected) + "\n"
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+            cls.tf_version = (0, 7, 0)
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                mock_run.return_value = resp
+                res = cls._get_outputs()
+        assert res == expected
+        assert mock_run.mock_calls == [call(cls, 'output', cmd_args=['-json'])]
         assert mock_logger.mock_calls == [
             call.debug('Running: terraform output'),
             call.debug('Terraform outputs: %s', expected)
@@ -353,8 +377,7 @@ class TestTerraformRunner(object):
             call(cls, 'validate', ['.'])
         ]
         assert mock_logger.mock_calls == [
-            call.debug('Terraform version: maj=%s min=%s patch=%s',
-                       1, 2, 3),
+            call.debug('Terraform version: %s', (1, 2, 3)),
         ]
 
     def test_validate_version_fail(self):
@@ -392,7 +415,8 @@ class TestTerraformRunner(object):
         ]
         assert mock_logger.mock_calls == [
             call.error('Unable to determine terraform version; will not '
-                       'validate config.')
+                       'validate config. Note that this may cause problems '
+                       'when using older Terraform versions.')
         ]
 
     def test_validate_old_version(self):
@@ -409,10 +433,10 @@ class TestTerraformRunner(object):
             with patch('%s.logger' % pbm) as mock_logger:
                 cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         assert mock_logger.mock_calls == [
-            call.debug('Terraform version: maj=%s min=%s patch=%s', 0, 6, 3),
+            call.debug('Terraform version: %s', (0, 6, 3)),
             call.warning('Terraform config validation requires terraform '
-                         '>= 0.6.12, but you are running %s.%s.%s. Config '
-                         'validation will not be performed', 0, 6, 3)
+                         '>= 0.6.12, but you are running %s. Config '
+                         'validation will not be performed', (0, 6, 3))
         ]
         assert mock_run.mock_calls == [
             call(cls, 'version')
@@ -439,8 +463,7 @@ class TestTerraformRunner(object):
             call('validate', ['.'])
         ]
         assert mock_logger.mock_calls == [
-            call.debug('Terraform version: maj=%s min=%s patch=%s',
-                       1, 2, 3),
+            call.debug('Terraform version: %s', (1, 2, 3)),
             call.critical("Terraform config validation failed. This is almost "
                           "certainly a bug in webhook2lambda2sqs; please "
                           "re-run with '-vv' and open a bug at <https://"

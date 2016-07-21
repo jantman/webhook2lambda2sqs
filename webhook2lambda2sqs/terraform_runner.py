@@ -38,6 +38,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import logging
 from webhook2lambda2sqs.utils import run_cmd
 import re
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ class TerraformRunner(object):
         """
         self.config = config
         self.tf_path = tf_path
+        # if we fail getting the version, assume newest
+        self.tf_version = (999, 999, 999)
         self._validate()
 
     def _validate(self):
@@ -73,18 +76,17 @@ class TerraformRunner(object):
         res = re.search(r'Terraform v(\d+)\.(\d+)\.(\d+)', out)
         if res is None:
             logger.error('Unable to determine terraform version; will not '
-                         'validate config.')
+                         'validate config. Note that this may cause problems '
+                         'when using older Terraform versions.')
             return
-        maj_v = int(res.group(1))
-        min_v = int(res.group(2))
-        patch_v = int(res.group(3))
-        logger.debug('Terraform version: maj=%s min=%s patch=%s', maj_v, min_v,
-                     patch_v)
-        if maj_v == 0 and ((min_v < 6) or (min_v == 6 and patch_v < 12)):
+        self.tf_version = (
+            int(res.group(1)), int(res.group(2)), int(res.group(3))
+        )
+        logger.debug('Terraform version: %s', self.tf_version)
+        if self.tf_version < (0, 6, 12):
             logger.warning('Terraform config validation requires terraform '
-                           '>= 0.6.12, but you are running %s.%s.%s. Config '
-                           'validation will not be performed', maj_v, min_v,
-                           patch_v)
+                           '>= 0.6.12, but you are running %s. Config '
+                           'validation will not be performed', self.tf_version)
             return
         try:
             self._run_tf('validate', ['.'])
@@ -203,6 +205,12 @@ class TerraformRunner(object):
         :return: dict of terraform outputs
         :rtype: dict
         """
+        if self.tf_version >= (0, 7, 0):
+            logger.debug('Running: terraform output')
+            res = self._run_tf('output', cmd_args=['-json'])
+            outs = json.loads(res.strip())
+            logger.debug('Terraform outputs: %s', outs)
+            return outs
         logger.debug('Running: terraform output')
         res = self._run_tf('output')
         outs = {}
