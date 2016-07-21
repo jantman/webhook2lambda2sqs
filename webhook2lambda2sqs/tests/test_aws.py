@@ -39,6 +39,8 @@ import sys
 import pytest
 from pprint import pformat
 from webhook2lambda2sqs.aws import AWSInfo
+from time import tzset
+import os
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -156,6 +158,9 @@ class TestAWSInfo(object):
         ]
 
     def test_show_log_stream(self, capsys):
+        # make sure we have the timezone we expect
+        os.environ['TZ'] = 'UTC'
+        tzset()
         conn = Mock()
         conn.get_log_events.return_value = {
             'events': [
@@ -183,8 +188,8 @@ class TestAWSInfo(object):
         out, err = capsys.readouterr()
         assert err == ''
         assert out == "## Log Group 'gname'; Log Stream 'sname'\n" \
-                      "2016-07-17 15:58:16 => msg1\n" \
-                      "2016-07-17 15:02:00 => msg2\n"
+                      "2016-07-17 19:58:16 => msg1\n" \
+                      "2016-07-17 19:02:00 => msg2\n"
         assert conn.mock_calls == [
             call.get_log_events(logGroupName='gname', logStreamName='sname',
                                 limit=2, startFromHead=False)
