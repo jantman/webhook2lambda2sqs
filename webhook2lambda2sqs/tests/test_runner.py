@@ -488,7 +488,8 @@ class TestRunner(object):
             VERSION, PROJECT_URL
         )
         out, err = capsys.readouterr()
-        if sys.version_info[0] < 3:
+        if (sys.version_info[0] < 3 or
+                (sys.version_info[0] == 3 and sys.version_info[1] < 4)):
             assert out == ''
             assert err == expected
         else:
