@@ -38,9 +38,11 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import pytest
 from pprint import pformat
-from webhook2lambda2sqs.aws import AWSInfo
 from time import tzset
 import os
+
+from webhook2lambda2sqs.aws import AWSInfo
+from webhook2lambda2sqs.tests.support import exc_msg
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -268,9 +270,9 @@ class TestAWSInfo(object):
                         mock_aqn.return_value = ['foo', 'bar', 'baz']
                         with pytest.raises(Exception) as excinfo:
                             self.cls.show_queue(count=12, delete=True)
-        assert excinfo.value.message == 'Error: currently this script only ' \
-                                        'supports receiving 10 or fewer ' \
-                                        'messages per queue.'
+        assert exc_msg(excinfo.value) == 'Error: currently this script only ' \
+                                         'supports receiving 10 or fewer ' \
+                                         'messages per queue.'
         assert mock_sqs.mock_calls == []
         assert mock_show.mock_calls == []
         assert mock_logger.mock_calls == []
@@ -466,7 +468,7 @@ class TestAWSInfo(object):
                 type(mock_client.return_value)._client_config = mock_conf
                 with pytest.raises(Exception) as excinfo:
                     self.cls.get_api_base_url()
-        assert excinfo.value.message == 'Unable to find ReST API named myfname'
+        assert exc_msg(excinfo.value) == 'Unable to find ReST API named myfname'
         assert mock_client.mock_calls == [
             call('apigateway'),
             call().get_rest_apis()

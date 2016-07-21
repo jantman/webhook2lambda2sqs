@@ -529,7 +529,7 @@ class TerraformGenerator(object):
         # create a ZipInfo so we can set file attributes/mode
         zinfo = zipfile.ZipInfo('webhook2lambda2sqs_func.py', zi_tup)
         # set file mode
-        zinfo.external_attr = 0755 << 16
+        zinfo.external_attr = 0x0755 << 16
         logger.debug('setting zipinfo file mode to: %s', zinfo.external_attr)
         logger.debug('writing zip file at: %s', fpath)
         with zipfile.ZipFile(fpath, 'w') as z:

@@ -48,6 +48,8 @@ from webhook2lambda2sqs.runner import (main, parse_args, set_log_info,
                                        get_base_url, run_test)
 from webhook2lambda2sqs.version import PROJECT_URL, VERSION
 
+from webhook2lambda2sqs.tests.support import exc_msg
+
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
 if (
@@ -732,4 +734,4 @@ class TestRunner(object):
             mocks['requests'].get.return_value = res1
             with pytest.raises(Exception) as excinfo:
                 run_test(conf, args)
-        assert excinfo.value.message == 'Unimplemented method: FOO'
+        assert exc_msg(excinfo.value) == 'Unimplemented method: FOO'

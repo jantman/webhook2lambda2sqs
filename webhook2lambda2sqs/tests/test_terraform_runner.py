@@ -38,6 +38,7 @@ import sys
 import pytest
 
 from webhook2lambda2sqs.terraform_runner import TerraformRunner
+from webhook2lambda2sqs.tests.support import exc_msg
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -82,10 +83,10 @@ class TestTerraformRunner(object):
             mock_run.side_effect = se_exc
             with pytest.raises(Exception) as excinfo:
                 TerraformRunner(c, 'mypath')
-        assert excinfo.value.message == 'ERROR: executing \'mypath ' \
-                                        'version\' failed; is terraform ' \
-                                        'installed and is the path to it ' \
-                                        '(mypath) correct?'
+        assert exc_msg(excinfo.value) == 'ERROR: executing \'mypath ' \
+                                         'version\' failed; is terraform ' \
+                                         'installed and is the path to it ' \
+                                         '(mypath) correct?'
 
     def test_args_for_remote_none(self):
         conf = self.mock_config()
@@ -170,7 +171,7 @@ class TestTerraformRunner(object):
                 with pytest.raises(Exception) as excinfo:
                     cls._run_tf('plan', cmd_args=['config', 'foo', 'bar'],
                                 stream=True)
-        assert excinfo.value.message == 'terraform plan failed'
+        assert exc_msg(excinfo.value) == 'terraform plan failed'
         assert mock_run.mock_calls == [
             call(expected_args, stream=True)
         ]
@@ -420,10 +421,10 @@ class TestTerraformRunner(object):
         assert mock_run.mock_calls == [
             call('version')
         ]
-        assert excinfo.value.message == 'ERROR: executing \'terraform-bin ' \
-                                        'version\' failed; is terraform ' \
-                                        'installed and is the path to it ' \
-                                        '(terraform-bin) correct?'
+        assert exc_msg(excinfo.value) == 'ERROR: executing \'terraform-bin ' \
+                                         'version\' failed; is terraform ' \
+                                         'installed and is the path to it ' \
+                                         '(terraform-bin) correct?'
         assert mock_logger.mock_calls == []
 
     def test_validate_version_no_re_match(self):
@@ -481,8 +482,8 @@ class TestTerraformRunner(object):
             with patch('%s.logger' % pbm, autospec=True) as mock_logger:
                 with pytest.raises(Exception) as excinfo:
                     TerraformRunner(self.mock_config(), 'terraform-bin')
-        assert excinfo.value.message == 'ERROR: Terraform config validation ' \
-                                        'failed.'
+        assert exc_msg(excinfo.value) == 'ERROR: Terraform config validation ' \
+                                         'failed.'
         assert mock_run.mock_calls == [
             call('version'),
             call('validate', ['.'])

@@ -38,6 +38,7 @@ import sys
 import pytest
 
 from webhook2lambda2sqs.config import Config
+from webhook2lambda2sqs.tests.support import exc_msg
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -75,8 +76,8 @@ class TestConfig(object):
             mock_load.return_value = {'my': 'config'}
             with pytest.raises(Exception) as excinfo:
                 Config('mypath')
-            assert excinfo.value.message == 'Error: configuration must have ' \
-                                            'at least 1 endpoint'
+            assert exc_msg(excinfo.value) == 'Error: configuration must have ' \
+                                             'at least 1 endpoint'
 
     def test_load_config(self):
         with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:

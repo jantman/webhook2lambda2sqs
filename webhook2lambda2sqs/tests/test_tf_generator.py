@@ -620,11 +620,11 @@ class TestTerraformGenerator(object):
         assert isinstance(arg_tup[0], ZipInfo)
         assert arg_tup[0].filename == 'webhook2lambda2sqs_func.py'
         assert arg_tup[0].date_time == (2016, 7, 1, 2, 3, 4)
-        assert arg_tup[0].external_attr == 0755 << 16
+        assert arg_tup[0].external_attr == 0x0755 << 16
         assert arg_tup[1] == 'myfsrc'
         assert mock_logger.mock_calls == [
             call.debug('setting zipinfo date to: %s', (2016, 7, 1, 2, 3, 4)),
-            call.debug('setting zipinfo file mode to: %s', (0755 << 16)),
+            call.debug('setting zipinfo file mode to: %s', (0x0755 << 16)),
             call.debug('writing zip file at: %s', 'mypath.zip')
         ]
 

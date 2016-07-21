@@ -39,6 +39,7 @@ import pytest
 import json
 
 from webhook2lambda2sqs.utils import pretty_json, run_cmd, read_json_file
+from webhook2lambda2sqs.tests.support import exc_msg
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -134,6 +135,6 @@ class TestUtils(object):
                        mock_open(read_data=content), create=True) as m_open:
                 with pytest.raises(Exception) as excinfo:
                     read_json_file('/my/path')
-        assert excinfo.value.message == 'ERROR: file /my/path does not exist.'
+        assert exc_msg(excinfo.value) == 'ERROR: file /my/path does not exist.'
         assert mock_exist.mock_calls == [call('/my/path')]
         assert m_open.mock_calls == []
