@@ -264,37 +264,25 @@ class TestTerraformRunner(object):
         assert mock_show.mock_calls == [call(cls)]
 
     def test_get_outputs(self):
-        state = {
-            'version': 1,
-            'serial': 1,
-            'modules': [
-                {
-                    'path': ['root'],
-                    'resources': {'foo': 'bar'},
-                    'outputs': {
-                        'out1': "foo\nbar",
-                        'out2': "baz"
-                    }
-                },
-                {
-                    'path': ['foo']
-                }
-            ]
+        resp = "base_url = https://ljgx260ix7.execute-api.us-east-1.ama/bar/\n"
+        resp += "arn = arn:aws:iam::1234567890:role/foo\n"
+        resp += "foobar = foo = bar = baz.w32\n\n"
+        expected = {
+            'base_url': 'https://ljgx260ix7.execute-api.us-east-1.ama/bar/',
+            'arn': 'arn:aws:iam::1234567890:role/foo',
+            'foobar': 'foo = bar = baz.w32'
         }
         with patch('%s._validate' % pb):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
-            with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:
-                with patch('%s.os.path.exists' % pbm) as mock_exists:
-                    mock_read.return_value = state
-                    mock_exists.side_effect = [False, True]
-                    res = cls._get_outputs()
-        assert res == {'out1': "foo\nbar", 'out2': 'baz'}
-        assert mock_read.mock_calls == [call('terraform.tfstate')]
+            with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                mock_run.return_value = resp
+                res = cls._get_outputs()
+        assert res == expected
+        assert mock_run.mock_calls == [call(cls, 'output')]
         assert mock_logger.mock_calls == [
-            call.debug('Does not exist: %s', '.terraform/terraform.tfstate'),
-            call.debug('Found tfstate: %s', 'terraform.tfstate'),
-            call.debug('Terraform state: %s', state)
+            call.debug('Running: terraform output'),
+            call.debug('Terraform outputs: %s', expected)
         ]
 
     def test_show_outputs(self, capsys):
@@ -308,44 +296,6 @@ class TestTerraformRunner(object):
         out, err = capsys.readouterr()
         assert err == ''
         assert out == "\n\n=> Terraform Outputs:\na = b\nfoo = bar\n"
-
-    def test_get_outputs_exception(self):
-
-        def se_exc(fpath):
-            raise Exception('foo')
-
-        with patch('%s._validate' % pb):
-            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
-        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
-            with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:
-                with patch('%s.os.path.exists' % pbm) as mock_exists:
-                    mock_exists.return_value = True
-                    mock_read.side_effect = se_exc
-                    res = cls._get_outputs()
-        assert res == {}
-        assert mock_read.mock_calls == [call('.terraform/terraform.tfstate')]
-        assert mock_logger.mock_calls == [
-            call.debug('Found tfstate: %s', '.terraform/terraform.tfstate'),
-            call.error('Error showing outputs from terraform state file: %s',
-                       '.terraform/terraform.tfstate', excinfo=1)
-        ]
-
-    def test_get_outputs_no_file(self, capsys):
-        with patch('%s._validate' % pb):
-            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
-        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
-            with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:
-                with patch('%s.os.path.exists' % pbm) as mock_exists:
-                    mock_exists.return_value = False
-                    res = cls._get_outputs()
-        assert res == {}
-        assert mock_read.mock_calls == []
-        assert mock_logger.mock_calls == [
-            call.debug('Does not exist: %s', '.terraform/terraform.tfstate'),
-            call.debug('Does not exist: %s', 'terraform.tfstate'),
-            call.error('Error: no terraform.tfstate file found; cannot show '
-                       'terraform outputs.')
-        ]
 
     def test_destroy(self):
         with patch('%s._validate' % pb):

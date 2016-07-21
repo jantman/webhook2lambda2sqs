@@ -36,8 +36,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 
 import logging
-from webhook2lambda2sqs.utils import run_cmd, read_json_file
-import os
+from webhook2lambda2sqs.utils import run_cmd
 import re
 
 logger = logging.getLogger(__name__)
@@ -204,29 +203,16 @@ class TerraformRunner(object):
         :return: dict of terraform outputs
         :rtype: dict
         """
-        fpath = None
+        logger.debug('Running: terraform output')
+        res = self._run_tf('output')
         outs = {}
-        for p in ['.terraform/terraform.tfstate', 'terraform.tfstate']:
-            if os.path.exists(p):
-                fpath = p
-                logger.debug('Found tfstate: %s', p)
-                break
-            logger.debug('Does not exist: %s', p)
-        if fpath is None:
-            logger.error('Error: no terraform.tfstate file found; cannot show'
-                         ' terraform outputs.')
-            return outs
-        try:
-            state = read_json_file(fpath)
-            logger.debug('Terraform state: %s', state)
-            for mod in state['modules']:
-                if 'outputs' not in mod:
-                    continue
-                for k in mod['outputs'].keys():
-                    outs[k] = mod['outputs'][k]
-        except Exception:
-            logger.error('Error showing outputs from terraform state file: %s',
-                         fpath, excinfo=1)
+        for line in res.split("\n"):
+            line = line.strip()
+            if line == '':
+                continue
+            parts = line.split(' = ', 1)
+            outs[parts[0]] = parts[1]
+        logger.debug('Terraform outputs: %s', outs)
         return outs
 
     def destroy(self, stream=False):
