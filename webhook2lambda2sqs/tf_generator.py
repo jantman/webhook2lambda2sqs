@@ -339,49 +339,10 @@ class TerraformGenerator(object):
             'stage_name': stage_name
         }
         """
-        @TODO - how to enable cloudwatch logs and metrics?
-        it looks like TF doesn't support this. When we enable them via the
-        Console:
-
-        $ aws apigateway get-stages --rest-api-id qn6agayon8
-        {
-            "item": [
-                {
-                    "stageName": "webhook2lambda2sqs",
-                    "cacheClusterSize": "0.5",
-                    "variables": {},
-                    "cacheClusterEnabled": false,
-                    "cacheClusterStatus": "NOT_AVAILABLE",
-                    "deploymentId": "za7cha",
-                    "lastUpdatedDate": 1468865370,
-                    "createdDate": 1468864980,
-                    "methodSettings": {
-                        "*/*": {
-                            "cacheTtlInSeconds": 300,
-                            "loggingLevel": "INFO",
-                            "dataTraceEnabled": true,
-                            "metricsEnabled": true,
-                            "unauthorizedCacheControlHeaderStrategy":
-                                "SUCCEED_WITH_RESPONSE_HEADER",
-                            "throttlingRateLimit": 500.0,
-                            "cacheDataEncrypted": false,
-                            "cachingEnabled": false,
-                            "throttlingBurstLimit": 1000,
-                            "requireAuthorizationForCacheControl": true
-                        }
-                    }
-                }
-            ]
-        }
-
-        But TF doesn't have a 'methodSettings' parameter... and it appears
-        ( see
-        https://docs.aws.amazon.com/apigateway/api-reference/resource/stage/
-        and
-        https://docs.aws.amazon.com/apigateway/api-reference/link-relation/stage-create/
-        )
-        that the actual AWS API supports updating these values, but not
-        specifying them at creation time.
+        @NOTE that currently, Terraform can't enable metrics collection,
+        request logging or rate limiting on API Gateway services. See
+        <https://github.com/hashicorp/terraform/issues/7754>
+        for details.
         """
         self.tf_conf['output']['base_url'] = {
             'value': 'https://${aws_api_gateway_rest_api.rest_api.id}.'
