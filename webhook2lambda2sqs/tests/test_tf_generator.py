@@ -388,29 +388,6 @@ class TestTerraformGenerator(object):
         self.cls._generate_response_models()
         assert self.cls.tf_conf == expected_conf
 
-    def test_get_config(self):
-        with patch('%s.pretty_json' % pbm, autospec=True) as mock_json:
-            with patch.multiple(
-                pb,
-                autospec=True,
-                _generate_lambda=DEFAULT,
-                _generate_iam_role=DEFAULT,
-                _generate_iam_invoke_role=DEFAULT,
-                _set_account_info=DEFAULT,
-                _generate_response_models=DEFAULT,
-                _generate_api_gateway=DEFAULT,
-                _generate_iam_role_policy=DEFAULT,
-                _generate_iam_invoke_role_policy=DEFAULT,
-            ) as mocks:
-                mock_json.return_value = 'my_json_str'
-                res = self.cls._get_config('funcsrc')
-        assert mock_json.mock_calls == [call(self.base_tf_conf)]
-        for m in mocks:
-            if m.startswith('_generate'):
-                assert mocks[m].mock_calls == [call(self.cls)]
-        assert mocks['_set_account_info'].mock_calls == [call(self.cls)]
-        assert res == 'my_json_str'
-
     def test_generate_api_gateway(self):
         expected_conf = self.base_tf_conf
         expected_conf['resource']['aws_api_gateway_rest_api'] = {
@@ -421,14 +398,6 @@ class TestTerraformGenerator(object):
         }
         expected_conf['output']['rest_api_id'] = {
             'value': '${aws_api_gateway_rest_api.rest_api.id}'
-        }
-        expected_conf['resource']['aws_api_gateway_deployment'] = {
-            'depl': {
-                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-                'depends_on': ['aws_api_gateway_rest_api.rest_api'],
-                'description': 'mydesc',
-                'stage_name': 'webhook2lambda2sqs'
-            }
         }
         expected_conf['output']['base_url'] = {
             'value': 'https://${aws_api_gateway_rest_api.rest_api.id}.'
@@ -444,6 +413,33 @@ class TestTerraformGenerator(object):
             call(self.cls, 'other_resource_path', 'GET'),
             call(self.cls, 'some_resource_path', 'POST')
         ]
+
+    def test_generate_api_gateway_deployment(self):
+        self.cls.tf_conf['resource']['aws_api_gateway_integration'] = {
+            'foo': 1,
+            'bar': 2
+        }
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['aws_api_gateway_integration'] = {
+            'foo': 1,
+            'bar': 2
+        }
+        expected_conf['resource']['aws_api_gateway_deployment'] = {
+            'depl': {
+                'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+                'depends_on': [
+                    'aws_api_gateway_integration.foo',
+                    'aws_api_gateway_integration.bar',
+                    'aws_api_gateway_rest_api.rest_api'
+                ],
+                'description': 'mydesc',
+                'stage_name': 'webhook2lambda2sqs'
+            }
+        }
+        with patch('%s.description' % pb, new_callable=PropertyMock) as m_d:
+            m_d.return_value = 'mydesc'
+            self.cls._generate_api_gateway_deployment()
+        assert self.cls.tf_conf == expected_conf
 
     def test_generate_endpoint_post(self):
         expected_conf = self.base_tf_conf
@@ -598,6 +594,30 @@ class TestTerraformGenerator(object):
         with patch('%s.request_model_mapping' % pbm, {'GET': {'foo': 'bar'}}):
             self.cls._generate_endpoint('myname', 'GET')
         assert self.cls.tf_conf == expected_conf
+
+    def test_get_config(self):
+        with patch('%s.pretty_json' % pbm, autospec=True) as mock_json:
+            with patch.multiple(
+                pb,
+                autospec=True,
+                _generate_lambda=DEFAULT,
+                _generate_iam_role=DEFAULT,
+                _generate_iam_invoke_role=DEFAULT,
+                _set_account_info=DEFAULT,
+                _generate_response_models=DEFAULT,
+                _generate_api_gateway=DEFAULT,
+                _generate_iam_role_policy=DEFAULT,
+                _generate_iam_invoke_role_policy=DEFAULT,
+                _generate_api_gateway_deployment=DEFAULT,
+            ) as mocks:
+                mock_json.return_value = 'my_json_str'
+                res = self.cls._get_config('funcsrc')
+        assert mock_json.mock_calls == [call(self.base_tf_conf)]
+        for m in mocks:
+            if m.startswith('_generate'):
+                assert mocks[m].mock_calls == [call(self.cls)]
+        assert mocks['_set_account_info'].mock_calls == [call(self.cls)]
+        assert res == 'my_json_str'
 
     @freeze_time("2016-07-01 02:03:04")
     def test_write_zip(self):
