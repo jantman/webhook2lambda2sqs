@@ -332,12 +332,6 @@ class TerraformGenerator(object):
         # finally, the deployment
         # note stage_name is also hard-coded in AWSInfo.get_api_base_url
         stage_name = 'webhook2lambda2sqs'
-        self.tf_conf['resource']['aws_api_gateway_deployment']['depl'] = {
-            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'depends_on': ['aws_api_gateway_rest_api.rest_api'],
-            'description': self.description,
-            'stage_name': stage_name
-        }
         """
         @NOTE that currently, Terraform can't enable metrics collection,
         request logging or rate limiting on API Gateway services. See
@@ -353,6 +347,25 @@ class TerraformGenerator(object):
         endpoints = self.config.get('endpoints')
         for ep in sorted(endpoints.keys()):
             self._generate_endpoint(ep, endpoints[ep]['method'])
+
+    def _generate_api_gateway_deployment(self):
+        """
+        Generate the API Gateway Deployment/Stage, and add to self.tf_conf
+        """
+        # finally, the deployment
+        # note stage_name is also hard-coded in AWSInfo.get_api_base_url
+        stage_name = 'webhook2lambda2sqs'
+        dep_on = ["aws_api_gateway_integration.%s" % k
+                  for k in self.tf_conf['resource'][
+                       'aws_api_gateway_integration'].keys()
+                  ]
+        dep_on.append('aws_api_gateway_rest_api.rest_api')
+        self.tf_conf['resource']['aws_api_gateway_deployment']['depl'] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'description': self.description,
+            'stage_name': stage_name,
+            'depends_on': dep_on
+        }
 
     def _generate_endpoint(self, ep_name, ep_method):
         """
@@ -396,7 +409,10 @@ class TerraformGenerator(object):
             'response_models': {
                 'application/json':
                     '${aws_api_gateway_model.successmessage.name}',
-            }
+            },
+            'depends_on': [
+                'aws_api_gateway_method.%s_%s' % (ep_name, ep_method)
+            ]
         }
         self.tf_conf['resource']['aws_api_gateway_method_response'][
             '%s_%s_500' % (ep_name, ep_method)] = {
@@ -407,7 +423,10 @@ class TerraformGenerator(object):
             'response_models': {
                 'application/json':
                     '${aws_api_gateway_model.errormessage.name}',
-            }
+            },
+            'depends_on': [
+                'aws_api_gateway_method.%s_%s' % (ep_name, ep_method)
+            ]
         }
 
         self.tf_conf['resource']['aws_api_gateway_integration_response'][
@@ -416,7 +435,11 @@ class TerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,
             'status_code': 202,
-            'selection_pattern': '.*"success".*'
+            'selection_pattern': '.*"success".*',
+            'depends_on': [
+                'aws_api_gateway_method_response.%s_%s_202' % (
+                    ep_name, ep_method)
+            ]
         }
         self.tf_conf['resource']['aws_api_gateway_integration_response'][
             '%s_%s_errorResponse' % (ep_name, ep_method)] = {
@@ -424,6 +447,10 @@ class TerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,
             'status_code': 500,
+            'depends_on': [
+                'aws_api_gateway_method_response.%s_%s_500' % (
+                    ep_name, ep_method)
+            ]
         }
 
         self.tf_conf['resource']['aws_api_gateway_integration'][
@@ -460,6 +487,7 @@ class TerraformGenerator(object):
         self._generate_lambda()
         self._generate_response_models()
         self._generate_api_gateway()
+        self._generate_api_gateway_deployment()
         return pretty_json(self.tf_conf)
 
     def _write_zip(self, func_src, fpath):
