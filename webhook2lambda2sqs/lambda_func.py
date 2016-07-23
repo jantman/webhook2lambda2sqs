@@ -7,9 +7,26 @@ This file should not be modified directly.
 """
 
 import logging
+import boto3
+import json
 from pprint import pformat
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
+
+# suppress boto3 internal logging below WARNING level
+boto3_log = logging.getLogger("boto3")
+boto3_log.setLevel(logging.WARNING)
+boto3_log.propagate = True
+
+# suppress botocore internal logging below WARNING level
+botocore_log = logging.getLogger("botocore")
+botocore_log.setLevel(logging.WARNING)
+botocore_log.propagate = True
+
+# suppress requests internal logging below WARNING level
+requests_log = logging.getLogger("requests")
+requests_log.setLevel(logging.WARNING)
+requests_log.propagate = True
 
 endpoints = {}
 
@@ -17,32 +34,72 @@ endpoints = {}
 def webhook2lambda2sqs_handler(event, context):
     # be sure we log full information about any error
     try:
-        return handle_event(event, context)
+        res = handle_event(event, context)
     except Exception as ex:
         # log the error and re-raise the exception
         logger.error('Error handling event; event=%s context=%s',
                      event, vars(context), exc_info=1)
         raise ex
+    if len(res['SQSMessageIds']) < 1:
+        raise Exception('Failed enqueueing all messages.')
+    return res
 
 
 def handle_event(event, context):
     global endpoints
-    logger.debug('TYPES: event=%s, context=%s', type(event), type(context))
-    logger.debug('Endpoint Config: %s', pformat(endpoints))
-    logger.debug('Event: %s', pformat(event))
-    try:
-        logger.debug('Context: %s', pformat(vars(context)))
-    except:
-        logger.info('Error dumping context vars', excinfo=1)
-    # DEBUG
-    if event['body-json'] is not None and 'foo' in event['body-json']:
-        if event['body-json']['foo'] == 'a':
-            return {'status': 'success', 'message': 'mymsg'}
-        elif event['body-json']['foo'] == 'b':
-            return {'status': 'error', 'message': 'mymsg'}
-        elif event['body-json']['foo'] == 'c':
-            raise Exception('some exception')
-        else:
+    logger.debug('Endpoint Config: %s; Event: %s; Context: %s',
+                 pformat(endpoints), pformat(event), pformat(vars(context)))
+    ep_name = event['context']['resource-path'].lstrip('/')
+    if ep_name not in endpoints:
+        raise Exception('Endpoint not in configuration: /%s' % ep_name)
+    ep_conf = endpoints[ep_name]
+    msg_ids = []
+    failed = 0
+    conn = boto3.client('sqs')
+    msg = json.dumps({
+        'event': serializable_dict(event),
+        'context': serializable_dict(vars(context))
+    })
+    for queue_name in ep_conf['queues']:
+        try:
+            logger.debug('Getting Queue URL for queue %s', queue_name)
+            qurl = conn.get_queue_url(QueueName=queue_name)
+            logger.debug('Sending message to queue at: %s', qurl)
+            resp = conn.send_message(
+                QueueUrl=qurl,
+                MessageBody=msg,
+                DelaySeconds=0
+            )
+            logger.debug('Enqueued message in %s with ID %s', queue_name,
+                         resp['MessageId'])
+            msg_ids.append(resp['MessageId'])
+        except Exception:
+            failed += 1
+            logger.error('Failed enqueueing message in %s: %s', queue_name,
+                         msg, exc_info=1)
+    fail_str = ''
+    if failed > 0:
+        fail_str = '; %d failed' % failed
+    return {
+        'status': 'success',
+        'message': 'enqueued %s messages%s' % (len(msg_ids), fail_str),
+        'SQSMessageIds': msg_ids
+    }
+
+
+def serializable_dict(d):
+    """
+    Return a dict like d, but with any un-json-serializable elements removed.
+    """
+    newd = {}
+    for k in d.keys():
+        if isinstance(d[k], type({})):
+            newd[k] = serializable_dict(d[k])
+            continue
+        try:
+            json.dumps({'k': d[k]})
+            newd[k] = d[k]
+        except:
+            # unserializable
             pass
-    # END DEBUG
-    return {'status': 'success', 'message': 'param foo not set'}
+    return newd

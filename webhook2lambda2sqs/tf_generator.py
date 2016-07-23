@@ -313,7 +313,7 @@ class TerraformGenerator(object):
   "properties" : {
     "status" : { "type" : "string" },
     "message" : { "type" : "string" },
-    "SQSMessageId" : { "type" : "string" },
+    "SQSMessageIds" : { "type" : "array" },
     "request_id" : { "type" : "string" }
   }
 }

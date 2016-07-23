@@ -36,8 +36,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 import sys
 import pytest
-import json
-import os
 import requests
 import boto3
 
@@ -93,4 +91,3 @@ class TestAccpetance(object):
         print('Response JSON: %s', resp)
         assert resp['status'] == 'success'
         assert 'SQSMessageIds' in resp
-
