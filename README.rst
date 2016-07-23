@@ -235,9 +235,19 @@ Testing is done via `pytest <http://pytest.org/latest/>`_, driven by `tox <http:
 * testing is as simple as:
 
   * ``pip install tox``
-  * ``tox``
+  * ``tox -e <environment name>``
 
 * If you want to pass additional arguments to pytest, add them to the tox command line after "--". i.e., for verbose pytext output on py27 tests: ``tox -e py27 -- -v``
+
+Acceptance Tests
+++++++++++++++++
+
+These will actually spin up the entire system end-to-end, send some messages via
+POST and GET, and test that they work. It *should* clean everything up when finished.
+
+``tox -e acceptance``
+
+Use ``export NO_TEARDOWN=true`` to prevent tear-down of the infrastructure.
 
 Release Checklist
 -----------------
