@@ -38,7 +38,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 
 request_model_mapping = {
-    'POST': {
         'application/json': """##  See http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
 ##  This template will pass through all parameters including path, querystring, header, stage variables, and context through to the integration endpoint via the body/payload
 #set($allParams = $input.params())
@@ -83,8 +82,26 @@ request_model_mapping = {
     "resource-path" : "$context.resourcePath"
     }
 }"""
-    }
 }
 
-# @TODO - does this work?
-request_model_mapping['GET'] = request_model_mapping['POST']
+response_model_mapping = {
+    'error': {
+        'application/json': """
+#set($inputRoot = $input.json('$'))
+{
+  "status" : "error",
+  "message" : "$inputRoot.errorMessage",
+}
+        """
+    },
+    'success': {
+        'application/json': """
+#set($inputRoot = $input.json('$'))
+{
+  "status" : "success",
+  "message" : "$inputRoot.message",
+  "SQSMessageId": "$inputRoot.SQSMessageId"
+}
+        """
+    }
+}

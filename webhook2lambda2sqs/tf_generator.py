@@ -44,7 +44,9 @@ import os
 
 from webhook2lambda2sqs.version import VERSION, PROJECT_URL
 from webhook2lambda2sqs.utils import pretty_json
-from webhook2lambda2sqs.json_templates import request_model_mapping
+from webhook2lambda2sqs.json_templates import (
+    request_model_mapping, response_model_mapping
+)
 
 logger = logging.getLogger(__name__)
 
@@ -355,11 +357,11 @@ class TerraformGenerator(object):
         # finally, the deployment
         # note stage_name is also hard-coded in AWSInfo.get_api_base_url
         stage_name = 'webhook2lambda2sqs'
-        dep_on = ["aws_api_gateway_integration.%s" % k
-                  for k in self.tf_conf['resource'][
-                       'aws_api_gateway_integration'].keys()
-                  ]
-        dep_on.append('aws_api_gateway_rest_api.rest_api')
+        # this resource MUST come last
+        dep_on = []
+        for rtype in sorted(self.tf_conf['resource'].keys()):
+            for rname in sorted(self.tf_conf['resource'][rtype].keys()):
+                dep_on.append('%s.%s' % (rtype, rname))
         self.tf_conf['resource']['aws_api_gateway_deployment']['depl'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
             'description': self.description,
@@ -443,7 +445,7 @@ class TerraformGenerator(object):
                    '/invocations',
             'credentials': '${aws_iam_role.invoke_role.arn}',
             'integration_http_method': 'POST',
-            'request_templates': request_model_mapping[ep_method]
+            'request_templates': request_model_mapping
             # @TODO:
             # request_parameters_in_json
             # integrationResponses
@@ -456,6 +458,7 @@ class TerraformGenerator(object):
             'http_method': ep_method,
             'status_code': 202,
             'selection_pattern': '.*success.*',
+            'response_templates': response_model_mapping['success'],
             'depends_on': [
                 'aws_api_gateway_method_response.%s_%s_202' % (
                     ep_name, ep_method),
@@ -469,6 +472,7 @@ class TerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,
             'status_code': 500,
+            'response_templates': response_model_mapping['error'],
             'depends_on': [
                 'aws_api_gateway_method_response.%s_%s_500' % (
                     ep_name, ep_method),
