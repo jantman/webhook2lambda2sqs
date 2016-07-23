@@ -227,10 +227,12 @@ class TestTerraformRunner(object):
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
-                    mock_run.return_value = 'output'
-                    with patch('%s._show_outputs' % pb,
-                               autospec=True) as mock_show:
-                        cls.apply()
+                    with patch('%s._taint_deployment' % pb,
+                               autospec=True) as mock_taint:
+                        mock_run.return_value = 'output'
+                        with patch('%s._show_outputs' % pb,
+                                   autospec=True) as mock_show:
+                            cls.apply()
         assert mock_set.mock_calls == [call(cls, stream=False)]
         assert mock_run.mock_calls == [
             call(cls, 'apply', cmd_args=['-input=false', '-refresh=true', '.'],
@@ -242,17 +244,25 @@ class TestTerraformRunner(object):
             call.warning("Terraform apply finished successfully:\n%s", 'output')
         ]
         assert mock_show.mock_calls == [call(cls)]
+        assert mock_taint.mock_calls == [call(cls, stream=False)]
 
     def test_apply_stream(self):
+
+        def se_exc(*args, **kwargs):
+            raise Exception('foo')
+
         with patch('%s._validate' % pb):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
                 with patch('%s._run_tf' % pb, autospec=True) as mock_run:
-                    mock_run.return_value = 'output'
-                    with patch('%s._show_outputs' % pb,
-                               autospec=True) as mock_show:
-                        cls.apply(stream=True)
+                    with patch('%s._taint_deployment' % pb,
+                               autospec=True) as mock_taint:
+                        mock_run.return_value = 'output'
+                        mock_taint.side_effect = se_exc
+                        with patch('%s._show_outputs' % pb,
+                                   autospec=True) as mock_show:
+                            cls.apply(stream=True)
         assert mock_set.mock_calls == [call(cls, stream=True)]
         assert mock_run.mock_calls == [
             call(cls, 'apply', cmd_args=['-input=false', '-refresh=true', '.'],
@@ -264,6 +274,7 @@ class TestTerraformRunner(object):
             call.warning("Terraform apply finished successfully.")
         ]
         assert mock_show.mock_calls == [call(cls)]
+        assert mock_taint.mock_calls == [call(cls, stream=True)]
 
     def test_get_outputs_pre0point7(self):
         resp = "base_url = https://ljgx260ix7.execute-api.us-east-1.ama/bar/\n"

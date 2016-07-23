@@ -362,7 +362,8 @@ class TestTerraformGenerator(object):
   "type" : "object",
   "properties" : {
     "status" : { "type" : "string" },
-    "message" : { "type" : "string" }
+    "message" : { "type" : "string" },
+    "request_id" : { "type" : "string" }
   }
 }
                 """
@@ -379,7 +380,8 @@ class TestTerraformGenerator(object):
   "properties" : {
     "status" : { "type" : "string" },
     "message" : { "type" : "string" },
-    "SQSMessageId" : { "type" : "string" }
+    "SQSMessageId" : { "type" : "string" },
+    "request_id" : { "type" : "string" }
   }
 }
                 """
@@ -419,7 +421,17 @@ class TestTerraformGenerator(object):
             'foo': 1,
             'bar': 2
         }
+        self.cls.tf_conf['resource']['baz'] = {
+            'blam': 3,
+            'blarg': 4
+        }
+        self.cls.tf_conf['resource']['aws_api_gateway_rest_api'] = {
+            'rest_api': 5
+        }
         expected_conf = self.base_tf_conf
+        expected_conf['resource']['baz'] = self.cls.tf_conf['resource']['baz']
+        expected_conf['resource']['aws_api_gateway_rest_api'] =\
+            self.cls.tf_conf['resource']['aws_api_gateway_rest_api']
         expected_conf['resource']['aws_api_gateway_integration'] = {
             'foo': 1,
             'bar': 2
@@ -428,13 +440,18 @@ class TestTerraformGenerator(object):
             'depl': {
                 'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
                 'depends_on': [
-                    'aws_api_gateway_integration.foo',
                     'aws_api_gateway_integration.bar',
-                    'aws_api_gateway_rest_api.rest_api'
+                    'aws_api_gateway_integration.foo',
+                    'aws_api_gateway_rest_api.rest_api',
+                    'baz.blam',
+                    'baz.blarg'
                 ],
                 'description': 'mydesc',
                 'stage_name': 'webhook2lambda2sqs'
             }
+        }
+        expected_conf['output'] = {
+            'deployment_id': {'value': '${aws_api_gateway_deployment.depl.id}'}
         }
         with patch('%s.description' % pb, new_callable=PropertyMock) as m_d:
             m_d.return_value = 'mydesc'
@@ -494,7 +511,7 @@ class TestTerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.rname.id}',
             'http_method': 'POST',
             'status_code': 202,
-            'selection_pattern': '.*"success".*',
+            'response_templates': {'sbaz': 'sblam'},
             'depends_on': [
                 'aws_api_gateway_method_response.rname_POST_202',
                 'aws_api_gateway_integration.rname_POST_integration'
@@ -506,6 +523,8 @@ class TestTerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.rname.id}',
             'http_method': 'POST',
             'status_code': 500,
+            'response_templates': {'ebaz': 'eblam'},
+            'selection_pattern': '.*([Ee]xception|[Ee]rror).*',
             'depends_on': [
                 'aws_api_gateway_method_response.rname_POST_500',
                 'aws_api_gateway_integration.rname_POST_integration'
@@ -528,8 +547,12 @@ class TestTerraformGenerator(object):
             # request_parameters_in_json
             # integrationResponses
         }
-        with patch('%s.request_model_mapping' % pbm, {'POST': {'foo': 'bar'}}):
-            self.cls._generate_endpoint('rname', 'post')
+        with patch('%s.request_model_mapping' % pbm, {'foo': 'bar'}):
+            with patch('%s.response_model_mapping' % pbm, {
+                'success': {'sbaz': 'sblam'},
+                'error': {'ebaz': 'eblam'}
+            }):
+                self.cls._generate_endpoint('rname', 'post')
         assert self.cls.tf_conf == expected_conf
 
     def test_generate_endpoint_get(self):
@@ -585,7 +608,7 @@ class TestTerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.myname.id}',
             'http_method': 'GET',
             'status_code': 202,
-            'selection_pattern': '.*"success".*',
+            'response_templates': {'sbaz': 'sblam'},
             'depends_on': [
                 'aws_api_gateway_method_response.myname_GET_202',
                 'aws_api_gateway_integration.myname_GET_integration'
@@ -597,6 +620,8 @@ class TestTerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.myname.id}',
             'http_method': 'GET',
             'status_code': 500,
+            'response_templates': {'ebaz': 'eblam'},
+            'selection_pattern': '.*([Ee]xception|[Ee]rror).*',
             'depends_on': [
                 'aws_api_gateway_method_response.myname_GET_500',
                 'aws_api_gateway_integration.myname_GET_integration'
@@ -619,8 +644,12 @@ class TestTerraformGenerator(object):
             # request_parameters_in_json
             # integrationResponses
         }
-        with patch('%s.request_model_mapping' % pbm, {'GET': {'foo': 'bar'}}):
-            self.cls._generate_endpoint('myname', 'GET')
+        with patch('%s.request_model_mapping' % pbm, {'foo': 'bar'}):
+            with patch('%s.response_model_mapping' % pbm, {
+                'success': {'sbaz': 'sblam'},
+                'error': {'ebaz': 'eblam'}
+            }):
+                self.cls._generate_endpoint('myname', 'GET')
         assert self.cls.tf_conf == expected_conf
 
     def test_get_config(self):
