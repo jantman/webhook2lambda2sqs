@@ -429,30 +429,6 @@ class TerraformGenerator(object):
             ]
         }
 
-        self.tf_conf['resource']['aws_api_gateway_integration_response'][
-            '%s_%s_successResponse' % (ep_name, ep_method)] = {
-            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
-            'http_method': ep_method,
-            'status_code': 202,
-            'selection_pattern': '.*"success".*',
-            'depends_on': [
-                'aws_api_gateway_method_response.%s_%s_202' % (
-                    ep_name, ep_method)
-            ]
-        }
-        self.tf_conf['resource']['aws_api_gateway_integration_response'][
-            '%s_%s_errorResponse' % (ep_name, ep_method)] = {
-            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
-            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
-            'http_method': ep_method,
-            'status_code': 500,
-            'depends_on': [
-                'aws_api_gateway_method_response.%s_%s_500' % (
-                    ep_name, ep_method)
-            ]
-        }
-
         self.tf_conf['resource']['aws_api_gateway_integration'][
             '%s_%s_integration' % (ep_name, ep_method)] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
@@ -468,6 +444,34 @@ class TerraformGenerator(object):
             # @TODO:
             # request_parameters_in_json
             # integrationResponses
+        }
+
+        self.tf_conf['resource']['aws_api_gateway_integration_response'][
+            '%s_%s_successResponse' % (ep_name, ep_method)] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
+            'http_method': ep_method,
+            'status_code': 202,
+            'selection_pattern': '.*"success".*',
+            'depends_on': [
+                'aws_api_gateway_method_response.%s_%s_202' % (
+                    ep_name, ep_method),
+                'aws_api_gateway_integration.%s_%s_integration' % (
+                    ep_name, ep_method)
+            ]
+        }
+        self.tf_conf['resource']['aws_api_gateway_integration_response'][
+            '%s_%s_errorResponse' % (ep_name, ep_method)] = {
+            'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
+            'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
+            'http_method': ep_method,
+            'status_code': 500,
+            'depends_on': [
+                'aws_api_gateway_method_response.%s_%s_500' % (
+                    ep_name, ep_method),
+                'aws_api_gateway_integration.%s_%s_integration' % (
+                    ep_name, ep_method)
+            ]
         }
 
     def _get_config(self, func_src):

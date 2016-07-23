@@ -468,7 +468,10 @@ class TestTerraformGenerator(object):
             'response_models': {
                 'application/json':
                     '${aws_api_gateway_model.successmessage.name}',
-            }
+            },
+            'depends_on': [
+                'aws_api_gateway_method.rname_POST'
+            ]
         }
         expected_conf['resource']['aws_api_gateway_method_response'][
             'rname_POST_500'] = {
@@ -479,7 +482,10 @@ class TestTerraformGenerator(object):
             'response_models': {
                 'application/json':
                     '${aws_api_gateway_model.errormessage.name}',
-            }
+            },
+            'depends_on': [
+                'aws_api_gateway_method.rname_POST'
+            ]
         }
 
         expected_conf['resource']['aws_api_gateway_integration_response'][
@@ -488,7 +494,11 @@ class TestTerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.rname.id}',
             'http_method': 'POST',
             'status_code': 202,
-            'selection_pattern': '.*"success".*'
+            'selection_pattern': '.*"success".*',
+            'depends_on': [
+                'aws_api_gateway_method_response.rname_POST_202',
+                'aws_api_gateway_integration.rname_POST_integration'
+            ]
         }
         expected_conf['resource']['aws_api_gateway_integration_response'][
             'rname_POST_errorResponse'] = {
@@ -496,6 +506,10 @@ class TestTerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.rname.id}',
             'http_method': 'POST',
             'status_code': 500,
+            'depends_on': [
+                'aws_api_gateway_method_response.rname_POST_500',
+                'aws_api_gateway_integration.rname_POST_integration'
+            ]
         }
 
         expected_conf['resource']['aws_api_gateway_integration'][
@@ -545,7 +559,10 @@ class TestTerraformGenerator(object):
             'response_models': {
                 'application/json':
                     '${aws_api_gateway_model.successmessage.name}',
-            }
+            },
+            'depends_on': [
+                'aws_api_gateway_method.myname_GET'
+            ]
         }
         expected_conf['resource']['aws_api_gateway_method_response'][
             'myname_GET_500'] = {
@@ -556,7 +573,10 @@ class TestTerraformGenerator(object):
             'response_models': {
                 'application/json':
                     '${aws_api_gateway_model.errormessage.name}',
-            }
+            },
+            'depends_on': [
+                'aws_api_gateway_method.myname_GET'
+            ]
         }
 
         expected_conf['resource']['aws_api_gateway_integration_response'][
@@ -565,7 +585,11 @@ class TestTerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.myname.id}',
             'http_method': 'GET',
             'status_code': 202,
-            'selection_pattern': '.*"success".*'
+            'selection_pattern': '.*"success".*',
+            'depends_on': [
+                'aws_api_gateway_method_response.myname_GET_202',
+                'aws_api_gateway_integration.myname_GET_integration'
+            ]
         }
         expected_conf['resource']['aws_api_gateway_integration_response'][
             'myname_GET_errorResponse'] = {
@@ -573,6 +597,10 @@ class TestTerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.myname.id}',
             'http_method': 'GET',
             'status_code': 500,
+            'depends_on': [
+                'aws_api_gateway_method_response.myname_GET_500',
+                'aws_api_gateway_integration.myname_GET_integration'
+            ]
         }
 
         expected_conf['resource']['aws_api_gateway_integration'][
