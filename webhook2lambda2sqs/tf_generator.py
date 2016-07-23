@@ -366,6 +366,9 @@ class TerraformGenerator(object):
             'stage_name': stage_name,
             'depends_on': dep_on
         }
+        self.tf_conf['output']['deployment_id'] = {
+            'value': '${aws_api_gateway_deployment.depl.id}'
+        }
 
     def _generate_endpoint(self, ep_name, ep_method):
         """
@@ -452,7 +455,7 @@ class TerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,
             'status_code': 202,
-            'selection_pattern': '.*"success".*',
+            'selection_pattern': '.*success.*',
             'depends_on': [
                 'aws_api_gateway_method_response.%s_%s_202' % (
                     ep_name, ep_method),
