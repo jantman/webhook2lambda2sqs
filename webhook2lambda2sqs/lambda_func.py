@@ -15,12 +15,14 @@ endpoints = {}
 
 
 def webhook2lambda2sqs_handler(event, context):
+    # be sure we log full information about any error
     try:
-        handle_event(event, context)
-    except Exception:
-        logger.error('Error handling event event=%s context=%s',
+        return handle_event(event, context)
+    except Exception as ex:
+        # log the error and re-raise the exception
+        logger.error('Error handling event; event=%s context=%s',
                      event, vars(context), exc_info=1)
-        return {'status': 'error'}
+        raise ex
 
 
 def handle_event(event, context):
@@ -32,4 +34,15 @@ def handle_event(event, context):
         logger.debug('Context: %s', pformat(vars(context)))
     except:
         logger.info('Error dumping context vars', excinfo=1)
-    return {'status': 'success'}
+    # DEBUG
+    if event['body-json'] is not None and 'foo' in event['body-json']:
+        if event['body-json']['foo'] == 'a':
+            return {'status': 'success', 'message': 'mymsg'}
+        elif event['body-json']['foo'] == 'b':
+            return {'status': 'error', 'message': 'mymsg'}
+        elif event['body-json']['foo'] == 'c':
+            raise Exception('some exception')
+        else:
+            pass
+    # END DEBUG
+    return {'status': 'success', 'message': 'param foo not set'}

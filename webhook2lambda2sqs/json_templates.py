@@ -87,20 +87,22 @@ request_model_mapping = {
 response_model_mapping = {
     'error': {
         'application/json': """
-#set($inputRoot = $input.json('$'))
+#set($inputRoot = $input.path('$'))
 {
   "status" : "error",
   "message" : "$inputRoot.errorMessage",
+  "request_id': "$context.requestId",
 }
         """
     },
     'success': {
         'application/json': """
-#set($inputRoot = $input.json('$'))
+#set($inputRoot = $input.path('$'))
 {
   "status" : "success",
   "message" : "$inputRoot.message",
-  "SQSMessageId": "$inputRoot.SQSMessageId"
+  "SQSMessageId": "$inputRoot.SQSMessageId",
+  "request_id': "$context.requestId"
 }
         """
     }
