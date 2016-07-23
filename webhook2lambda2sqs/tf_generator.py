@@ -295,7 +295,8 @@ class TerraformGenerator(object):
   "type" : "object",
   "properties" : {
     "status" : { "type" : "string" },
-    "message" : { "type" : "string" }
+    "message" : { "type" : "string" },
+    "request_id" : { "type" : "string" }
   }
 }
                 """
@@ -312,7 +313,8 @@ class TerraformGenerator(object):
   "properties" : {
     "status" : { "type" : "string" },
     "message" : { "type" : "string" },
-    "SQSMessageId" : { "type" : "string" }
+    "SQSMessageId" : { "type" : "string" },
+    "request_id" : { "type" : "string" }
   }
 }
                 """
@@ -457,7 +459,6 @@ class TerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,
             'status_code': 202,
-            'selection_pattern': '.*success.*',
             'response_templates': response_model_mapping['success'],
             'depends_on': [
                 'aws_api_gateway_method_response.%s_%s_202' % (
@@ -472,6 +473,7 @@ class TerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,
             'status_code': 500,
+            'selection_pattern': '.*([Ee]xception|[Ee]rror).*',
             'response_templates': response_model_mapping['error'],
             'depends_on': [
                 'aws_api_gateway_method_response.%s_%s_500' % (

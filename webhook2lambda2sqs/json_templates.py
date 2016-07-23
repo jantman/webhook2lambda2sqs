@@ -90,7 +90,7 @@ response_model_mapping = {
 #set($inputRoot = $input.path('$'))
 {
   "status" : "error",
-  "message" : "$inputRoot.errorMessage",
+  "message" : "Exception: $inputRoot.get(\"errorType\"): $inputRoot.get(\"errorMessage\")",
   "request_id': "$context.requestId",
 }
         """
@@ -100,7 +100,7 @@ response_model_mapping = {
 #set($inputRoot = $input.path('$'))
 {
   "status" : "success",
-  "message" : "$inputRoot.message",
+  "message" : "$inputRoot.get(\"message\")",
   "SQSMessageId": "$inputRoot.SQSMessageId",
   "request_id': "$context.requestId"
 }

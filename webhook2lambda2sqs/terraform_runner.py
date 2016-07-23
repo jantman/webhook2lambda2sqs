@@ -199,7 +199,10 @@ class TerraformRunner(object):
         :type stream: bool
         """
         self._set_remote(stream=stream)
-        self._taint_deployment(stream=stream)
+        try:
+            self._taint_deployment(stream=stream)
+        except Exception:
+            pass
         args = ['-input=false', '-refresh=true', '.']
         logger.warning('Running terraform apply: %s', ' '.join(args))
         out = self._run_tf('apply', cmd_args=args, stream=stream)
