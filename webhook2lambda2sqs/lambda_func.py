@@ -63,7 +63,7 @@ def handle_event(event, context):
     for queue_name in ep_conf['queues']:
         try:
             logger.debug('Getting Queue URL for queue %s', queue_name)
-            qurl = conn.get_queue_url(QueueName=queue_name)
+            qurl = conn.get_queue_url(QueueName=queue_name)['QueueUrl']
             logger.debug('Sending message to queue at: %s', qurl)
             resp = conn.send_message(
                 QueueUrl=qurl,

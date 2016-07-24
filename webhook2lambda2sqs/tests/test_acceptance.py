@@ -38,6 +38,7 @@ import sys
 import pytest
 import requests
 import boto3
+import json
 
 acceptance_config = {
     'endpoints': {
@@ -61,11 +62,26 @@ acceptance_config = {
 @pytest.mark.acceptance
 class TestAccpetance(object):
 
-    def queue_has_message(self, queuename, method, run_id, msg_id):
+    def get_message_id(self, queuename, run_id, method_name):
         """
         Return True if the queue has a matching message, False otherwise.
         """
         conn = boto3.client('sqs')
+        qurl = conn.get_queue_url(QueueName=queuename)['QueueUrl']
+        msgs = conn.receive_message(
+            QueueUrl=qurl,
+            MaxNumberOfMessages=10,
+            VisibilityTimeout=5,
+            WaitTimeSeconds=10
+        )
+        if 'Messages' not in msgs:
+            return None
+        for m in msgs['Messages']:
+            j = json.loads(m['Body'])
+            if (j['event']['body-json']['method'] == method_name and
+                j['event']['body-json']['run_id'] == run_id):
+                return m['MessageId']
+        return None
 
     def _request(self, method, url, data):
         sys.stderr.write("\n%s %s (data: %s)\n" % (method, url, data))
@@ -91,3 +107,6 @@ class TestAccpetance(object):
         print('Response JSON: %s', resp)
         assert resp['status'] == 'success'
         assert 'SQSMessageIds' in resp
+        assert len(resp['SQSMessageIds']) == 1
+        msg = self.get_message_id('w2l2sitest1', run_id, meth_name)
+        assert msg == resp['SQSMessageIds'][0]

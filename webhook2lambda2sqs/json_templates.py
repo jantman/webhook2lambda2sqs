@@ -101,7 +101,7 @@ response_model_mapping = {
 {
   "status" : "success",
   "message" : "$inputRoot.get(\"message\")",
-  "SQSMessageIds": "$inputRoot.get(\"SQSMessageIds\")",
+  "SQSMessageIds": $inputRoot.get(\"SQSMessageIds\"),
   "request_id": "$context.requestId"
 }
         """
