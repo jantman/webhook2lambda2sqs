@@ -99,7 +99,7 @@ response_model_mapping = {
         'application/json': """
 #set($inputRoot = $input.path('$'))
 {
-  "status" : "success",
+  "status" : "$inputRoot.get(\"status\")",
   "message" : "$inputRoot.get(\"message\")",
   "SQSMessageIds": $inputRoot.get(\"SQSMessageIds\"),
   "request_id": "$context.requestId"
