@@ -220,10 +220,14 @@ class AWSInfo(object):
         logger.debug('Connecting to SQS API')
         conn = client('sqs')
         if name is not None:
-            self._show_one_queue(conn, name, count, delete=delete)
-            return
-        for q_name in self._all_queue_names:
-            self._show_one_queue(conn, q_name, count, delete=delete)
+            queues = [name]
+        else:
+            queues = self._all_queue_names
+        for q_name in queues:
+            try:
+                self._show_one_queue(conn, q_name, count, delete=delete)
+            except Exception:
+                logger.error("Error showing queue '%s'", q_name, exc_info=1)
 
     def get_api_base_url(self):
         """
