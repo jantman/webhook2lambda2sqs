@@ -253,12 +253,13 @@ Release Checklist
 -----------------
 
 1. Open an issue for the release; cut a branch off master for that issue.
-2. Confirm that there are CHANGES.rst entries for all major changes.
-3. Ensure that Travis tests passing in all environments.
-4. Ensure that test coverage is no less than the last release (ideally, 100%).
-5. Increment the version number in webhook2lambda2sqs/version.py and add version and release date to CHANGES.rst, then push to GitHub.
-6. Confirm that README.rst renders correctly on GitHub.
-7. Upload package to testpypi:
+2. Run the ``acceptance`` tox environment locally.
+3. Confirm that there are CHANGES.rst entries for all major changes.
+4. Ensure that Travis tests passing in all environments.
+5. Ensure that test coverage is no less than the last release (ideally, 100%).
+6. Increment the version number in webhook2lambda2sqs/version.py and add version and release date to CHANGES.rst, then push to GitHub.
+7. Confirm that README.rst renders correctly on GitHub.
+8. Upload package to testpypi:
 
    * Make sure your ~/.pypirc file is correct (a repo called ``test`` for https://testpypi.python.org/pypi)
    * ``rm -Rf dist``
@@ -267,8 +268,8 @@ Release Checklist
    * ``twine upload -r test dist/*``
    * Check that the README renders at https://testpypi.python.org/pypi/webhook2lambda2sqs
 
-8. Create a pull request for the release to be merged into master. Upon successful Travis build, merge it.
-9. Tag the release in Git, push tag to GitHub:
+9. Create a pull request for the release to be merged into master. Upon successful Travis build, merge it.
+10. Tag the release in Git, push tag to GitHub:
 
    * tag the release. for now the message is quite simple: ``git tag -a vX.Y.Z -m 'X.Y.Z released YYYY-MM-DD'``
    * push the tag to GitHub: ``git push origin vX.Y.Z``
@@ -277,7 +278,7 @@ Release Checklist
 
     * ``twine upload dist/*``
 
-10. make sure any GH issues fixed in the release were closed.
+12. make sure any GH issues fixed in the release were closed.
 
 A Note About the License
 ------------------------
