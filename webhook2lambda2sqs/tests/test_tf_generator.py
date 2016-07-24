@@ -159,6 +159,25 @@ class TestTerraformGenerator(object):
                         "arn:aws:logs:myregion:1234:log-group:"
                         "/aws/lambda/myFuncName:*"
                     ]
+                },
+                {
+                    'Effect': 'Allow',
+                    'Action': [
+                        'sqs:ListQueues'
+                    ],
+                    'Resource': '*'
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "sqs:GetQueueUrl",
+                        "sqs:SendMessage"
+                    ],
+                    "Resource": [
+                        "arn:aws:sqs:myregion:1234:queueName1",
+                        "arn:aws:sqs:myregion:1234:queueName2",
+                        "arn:aws:sqs:myregion:1234:queueName3"
+                    ]
                 }
             ]
         }

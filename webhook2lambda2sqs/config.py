@@ -55,7 +55,7 @@ class Config(object):
             },
             'other_resource_path': {
                 'method': 'GET',
-                'queues': ['queuename2', 'queuename3']
+                'queues': ['queueName2', 'queueName3']
             }
         },
         'terraform_remote_state': {
