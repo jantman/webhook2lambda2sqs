@@ -496,7 +496,7 @@ class TerraformGenerator(object):
             'resource_id': '${aws_api_gateway_resource.%s.id}' % ep_name,
             'http_method': ep_method,
             'status_code': 500,
-            'selection_pattern': '.*([Ee]xception|[Ee]rror).*',
+            'selection_pattern': '(^Failed.*)|(.*([Ee]xception|[Ee]rror).*)',
             'response_templates': response_model_mapping['error'],
             'depends_on': [
                 'aws_api_gateway_method_response.%s_%s_500' % (
