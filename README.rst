@@ -29,6 +29,10 @@ webhook2lambda2sqs
    :target: https://readthedocs.org/projects/webhook2lambda2sqs/?badge=latest
    :alt: sphinx documentation for latest release
 
+.. image:: https://badge.waffle.io/jantman/webhook2lambda2sqs.png?label=ready&title=Ready
+   :target: https://waffle.io/jantman/webhook2lambda2sqs
+   :alt: 'Stories in Ready'
+
 .. image:: http://www.repostatus.org/badges/latest/wip.svg
    :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
    :target: http://www.repostatus.org/#wip
