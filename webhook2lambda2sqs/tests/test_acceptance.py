@@ -46,8 +46,16 @@ acceptance_config = {
             'method': 'POST',
             'queues': ['w2l2sitest1']
         },
+        'goodGetQueue': {
+            'method': 'GET',
+            'queues': ['w2l2sitest2']
+        },
         'badQueue': {
             'method': 'GET',
+            'queues': ['f3f0823u8uf']
+        },
+        'badQueuePost': {
+            'method': 'POST',
             'queues': ['f3f0823u8uf']
         },
         'oneGoodQueueOneBad': {
@@ -78,8 +86,8 @@ class TestAccpetance(object):
             return None
         for m in msgs['Messages']:
             j = json.loads(m['Body'])
-            if (j['event']['body-json']['method'] == method_name and
-                j['event']['body-json']['run_id'] == run_id):
+            if (j['data']['method'] == method_name and
+                    j['data']['run_id'] == run_id):
                 return m['MessageId']
         return None
 
@@ -102,11 +110,87 @@ class TestAccpetance(object):
             'run_id': run_id,
             'method': meth_name
         })
-        assert r.status_code == 202
+        print('Response (%d) content: %s' % (r.status_code, r.text))
         resp = r.json()
-        print('Response JSON: %s', resp)
+        print('Response JSON: %s' % resp)
+        assert r.status_code == 202
         assert resp['status'] == 'success'
         assert 'SQSMessageIds' in resp
         assert len(resp['SQSMessageIds']) == 1
         msg = self.get_message_id('w2l2sitest1', run_id, meth_name)
+        assert msg == resp['SQSMessageIds'][0]
+
+    def test_get_queue_ok(self, acceptance_fixture):
+        base_url, run_id = acceptance_fixture
+        url = base_url + 'goodGetQueue/'
+        meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
+                                  sys._getframe().f_code.co_name)
+        r = self._request('GET', url, {
+            'run_id': run_id,
+            'method': meth_name
+        })
+        print('Response (%d) content: %s' % (r.status_code, r.text))
+        resp = r.json()
+        print('Response JSON: %s' % resp)
+        assert r.status_code == 202
+        assert resp['status'] == 'success'
+        assert 'SQSMessageIds' in resp
+        assert len(resp['SQSMessageIds']) == 1
+        msg = self.get_message_id('w2l2sitest2', run_id, meth_name)
+        assert msg == resp['SQSMessageIds'][0]
+
+    def test_get_bad_queue(self, acceptance_fixture):
+        base_url, run_id = acceptance_fixture
+        url = base_url + 'badQueue/'
+        meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
+                                  sys._getframe().f_code.co_name)
+        r = self._request('GET', url, {
+            'run_id': run_id,
+            'method': meth_name
+        })
+        print('Response (%d) content: %s' % (r.status_code, r.text))
+        resp = r.json()
+        print('Response JSON: %s' % resp)
+        assert r.status_code == 500
+        assert resp['status'] == 'error'
+        assert 'SQSMessageIds' not in resp
+        assert self.get_message_id('w2l2sitest1', run_id, meth_name) is None
+        assert self.get_message_id('w2l2sitest2', run_id, meth_name) is None
+
+    def test_post_bad_queue(self, acceptance_fixture):
+        base_url, run_id = acceptance_fixture
+        url = base_url + 'badQueuePost/'
+        meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
+                                  sys._getframe().f_code.co_name)
+        r = self._request('POST', url, {
+            'run_id': run_id,
+            'method': meth_name
+        })
+        print('Response (%d) content: %s' % (r.status_code, r.text))
+        resp = r.json()
+        print('Response JSON: %s' % resp)
+        assert r.status_code == 500
+        assert resp['status'] == 'error'
+        assert 'SQSMessageIds' not in resp
+        assert self.get_message_id('w2l2sitest1', run_id, meth_name) is None
+        assert self.get_message_id('w2l2sitest2', run_id, meth_name) is None
+
+    def test_post_one_good_one_bad(self, acceptance_fixture):
+        base_url, run_id = acceptance_fixture
+        url = base_url + 'oneGoodQueueOneBad/'
+        meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
+                                  sys._getframe().f_code.co_name)
+        r = self._request('POST', url, {
+            'run_id': run_id,
+            'method': meth_name
+        })
+        print('Response (%d) content: %s' % (r.status_code, r.text))
+        resp = r.json()
+        print('Response JSON: %s' % resp)
+        assert r.status_code == 202
+        assert resp['status'] == 'partial'
+        assert resp['message'] == 'enqueued 1 messages; 1 failed'
+        assert len(resp['SQSMessageIds']) == 1
+        assert self.get_message_id('w2l2sitest1', run_id, meth_name) is None
+        msg = self.get_message_id('w2l2sitest2', run_id, meth_name)
         assert msg == resp['SQSMessageIds'][0]
