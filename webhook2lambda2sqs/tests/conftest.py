@@ -123,7 +123,8 @@ def tear_down_acceptance(dir_path):
     sys.stderr.write("\ttear_down_acceptance(%s)\n" % dir_path)
     delete_queues()
     os.chdir(dir_path)
-    args = Mock(verbose=2, action='destroy')
+    args = Mock(verbose=2, action='destroy', tf_path='terraform',
+                config='config.json')
     sys.stderr.write("\trunning destroy\n")
     runner_main(args)
 
