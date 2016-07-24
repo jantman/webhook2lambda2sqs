@@ -543,7 +543,7 @@ class TestTerraformGenerator(object):
             'http_method': 'POST',
             'status_code': 500,
             'response_templates': {'ebaz': 'eblam'},
-            'selection_pattern': '.*([Ee]xception|[Ee]rror).*',
+            'selection_pattern': '(^Failed.*)|(.*([Ee]xception|[Ee]rror).*)',
             'depends_on': [
                 'aws_api_gateway_method_response.rname_POST_500',
                 'aws_api_gateway_integration.rname_POST_integration'
@@ -640,7 +640,7 @@ class TestTerraformGenerator(object):
             'http_method': 'GET',
             'status_code': 500,
             'response_templates': {'ebaz': 'eblam'},
-            'selection_pattern': '.*([Ee]xception|[Ee]rror).*',
+            'selection_pattern': '(^Failed.*)|(.*([Ee]xception|[Ee]rror).*)',
             'depends_on': [
                 'aws_api_gateway_method_response.myname_GET_500',
                 'aws_api_gateway_integration.myname_GET_integration'
