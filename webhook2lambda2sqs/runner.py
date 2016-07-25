@@ -123,6 +123,12 @@ def parse_args(argv):
                                       action='store_false', default=True,
                                       help='DO NOT stream Terraform output to '
                                            'STDOUT (combined) in realtime')
+    apilogparser = subparsers.add_parser('apilogs', help='show last 10 '
+                                         'CloudWatch Logs entries for the '
+                                         'API Gateway')
+    apilogparser.add_argument('-c', '--count', dest='log_count', type=int,
+                              default=10, help='number of log entries to show '
+                              '(default 10')
     logparser = subparsers.add_parser('logs', help='show last 10 CloudWatch '
                                       'Logs entries for the function')
     logparser.add_argument('-c', '--count', dest='log_count', type=int,
@@ -219,6 +225,32 @@ def get_base_url(config, args):
     return base_url
 
 
+def get_api_id(config, args):
+    """
+    Get the API ID from Terraform, or from AWS if that fails.
+
+    :param config: configuration
+    :type config: :py:class:`~.Config`
+    :param args: command line arguments
+    :type args: :py:class:`argparse.Namespace`
+    :return: API Gateway ID
+    :rtype: str
+    """
+    try:
+        logger.debug('Trying to get Terraform rest_api_id output')
+        runner = TerraformRunner(config, args.tf_path)
+        outputs = runner._get_outputs()
+        depl_id = outputs['rest_api_id']
+        logger.debug("Terraform rest_api_id output: '%s'", depl_id)
+    except Exception:
+        logger.info('Unable to find API rest_api_id from Terraform state;'
+                    ' querying AWS.', exc_info=1)
+        aws = AWSInfo(config)
+        depl_id = aws.get_api_id()
+        logger.debug("AWS API ID: '%s'", depl_id)
+    return depl_id
+
+
 def run_test(config, args):
     """
     Run the 'test' subcommand
@@ -287,6 +319,17 @@ def main(args=None):
     if args.action == 'logs':
         aws = AWSInfo(config)
         aws.show_cloudwatch_logs(count=args.log_count)
+        return
+
+    if args.action == 'apilogs':
+        api_id = get_api_id(config, args)
+        aws = AWSInfo(config)
+        aws.show_cloudwatch_logs(
+            count=args.log_count,
+            grp_name='API-Gateway-Execution-Logs_%s/webhook2lambda2sqs' % (
+                api_id
+            )
+        )
         return
 
     if args.action == 'queuepeek':

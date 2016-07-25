@@ -48,14 +48,15 @@ class AWSInfo(object):
     def __init__(self, config):
         self.config = config
 
-    def show_cloudwatch_logs(self, count=10):
+    def show_cloudwatch_logs(self, count=10, grp_name=None):
         """
         Show ``count`` latest CloudWatch Logs entries for our lambda function.
 
         :param count: number of log entries to show
         :type count: int
         """
-        grp_name = '/aws/lambda/%s' % self.config.func_name
+        if grp_name is None:
+            grp_name = '/aws/lambda/%s' % self.config.func_name
         logger.debug('Log Group Name: %s', grp_name)
         logger.debug('Connecting to AWS Logs API')
         conn = client('logs')
@@ -230,10 +231,17 @@ class AWSInfo(object):
                 logger.error("Error showing queue '%s'", q_name, exc_info=1)
 
     def get_api_base_url(self):
-        """
-        Return the base URL to the API.
+        conn = client('apigateway')
+        api_id = self.get_api_id()
+        return 'https://%s.execute-api.%s.amazonaws.com/%s/' % (
+                api_id, conn._client_config.region_name, 'webhook2lambda2sqs'
+            )
 
-        :return: API base url
+    def get_api_id(self):
+        """
+        Return the API ID.
+
+        :return: API ID
         :rtype: str
         """
         logger.debug('Connecting to AWS apigateway API')
@@ -248,6 +256,4 @@ class AWSInfo(object):
         if api_id is None:
             raise Exception('Unable to find ReST API named %s' %
                             self.config.func_name)
-        return 'https://%s.execute-api.%s.amazonaws.com/%s/' % (
-            api_id, conn._client_config.region_name, 'webhook2lambda2sqs'
-        )
+        return api_id

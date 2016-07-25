@@ -45,7 +45,7 @@ from freezegun import freeze_time
 
 from webhook2lambda2sqs.runner import (main, parse_args, set_log_info,
                                        set_log_debug, set_log_level_format,
-                                       get_base_url, run_test)
+                                       get_base_url, run_test, get_api_id)
 from webhook2lambda2sqs.version import PROJECT_URL, VERSION
 
 from webhook2lambda2sqs.tests.support import exc_msg
@@ -80,7 +80,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = (
                     'config-ex', 'config-docs')
@@ -95,6 +96,7 @@ class TestRunner(object):
         assert mocks['TerraformRunner'].mock_calls == []
         assert mocks['parse_args'].mock_calls == [call(['example-config'])]
         assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['get_api_id'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_example_config(self, capsys):
@@ -116,7 +118,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = (
                     'config-ex', 'config-docs')
@@ -132,6 +135,7 @@ class TestRunner(object):
         assert mocks['TerraformRunner'].mock_calls == []
         assert mocks['parse_args'].mock_calls == []
         assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['get_api_id'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_generate_log_info(self):
@@ -152,7 +156,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 mocks['LambdaFuncGenerator'
@@ -172,6 +177,7 @@ class TestRunner(object):
         assert mocks['TerraformRunner'].mock_calls == []
         assert mocks['parse_args'].mock_calls == []
         assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['get_api_id'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_genapply_log_debug(self):
@@ -192,7 +198,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 mocks['LambdaFuncGenerator'
@@ -215,6 +222,7 @@ class TestRunner(object):
         ]
         assert mocks['parse_args'].mock_calls == []
         assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['get_api_id'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_plan(self):
@@ -235,7 +243,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -250,6 +259,7 @@ class TestRunner(object):
         ]
         assert mocks['parse_args'].mock_calls == []
         assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['get_api_id'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_destroy(self):
@@ -270,7 +280,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -283,6 +294,7 @@ class TestRunner(object):
             call(mocks['Config'].return_value, '/some/other/path'),
             call().destroy(False)
         ]
+        assert mocks['get_api_id'].mock_calls == []
         assert mocks['parse_args'].mock_calls == []
         assert mocks['AWSInfo'].mock_calls == []
         assert mocklogger.mock_calls == []
@@ -305,7 +317,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -319,6 +332,51 @@ class TestRunner(object):
         assert mocks['AWSInfo'].mock_calls == [
             call(mocks['Config'].return_value),
             call().show_cloudwatch_logs(count=4)
+        ]
+        assert mocks['get_api_id'].mock_calls == []
+        assert mocklogger.mock_calls == []
+
+    def test_main_apilogs(self):
+        """
+        test main function
+        """
+
+        mock_args = Mock(verbose=0, action='apilogs', config='cpath',
+                         log_count=6)
+        with patch('%s.logger' % pbm, autospec=True) as mocklogger:
+            with patch.multiple(
+                pbm,
+                Config=DEFAULT,
+                AWSInfo=DEFAULT,
+                set_log_info=DEFAULT,
+                set_log_debug=DEFAULT,
+                LambdaFuncGenerator=DEFAULT,
+                TerraformGenerator=DEFAULT,
+                TerraformRunner=DEFAULT,
+                parse_args=DEFAULT,
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
+            ) as mocks:
+                mocks['Config'].example_config.return_value = 'config-ex'
+                type(mocks['Config'].return_value).func_name = 'myfname'
+                mocks['get_api_id'].return_value = 'did'
+                main(mock_args)
+        assert mocks['Config'].mock_calls == [call('cpath')]
+        assert mocks['set_log_info'].mock_calls == []
+        assert mocks['set_log_debug'].mock_calls == []
+        assert mocks['LambdaFuncGenerator'].mock_calls == []
+        assert mocks['TerraformGenerator'].mock_calls == []
+        assert mocks['TerraformRunner'].mock_calls == []
+        assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == [
+            call(mocks['Config'].return_value),
+            call().show_cloudwatch_logs(
+                count=6,
+                grp_name='API-Gateway-Execution-Logs_did/webhook2lambda2sqs'
+            )
+        ]
+        assert mocks['get_api_id'].mock_calls == [
+            call(mocks['Config'].return_value, mock_args)
         ]
         assert mocklogger.mock_calls == []
 
@@ -340,7 +398,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -355,6 +414,7 @@ class TestRunner(object):
             call(mocks['Config'].return_value),
             call().show_queue(name='foo', delete=True, count=2)
         ]
+        assert mocks['get_api_id'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_main_test(self):
@@ -374,7 +434,8 @@ class TestRunner(object):
                 TerraformGenerator=DEFAULT,
                 TerraformRunner=DEFAULT,
                 parse_args=DEFAULT,
-                run_test=DEFAULT
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 main(mock_args)
@@ -389,6 +450,7 @@ class TestRunner(object):
         assert mocks['run_test'].mock_calls == [
             call(mocks['Config'].return_value, mock_args)
         ]
+        assert mocks['get_api_id'].mock_calls == []
         assert mocklogger.mock_calls == []
 
     def test_parse_args_no_action(self, capsys):
@@ -413,7 +475,7 @@ class TestRunner(object):
 
     def test_parse_args_actions(self):
         for action in ['generate', 'example-config', 'logs', 'queuepeek',
-                       'test']:
+                       'test', 'apilogs']:
             res = parse_args([action])
             assert res.action == action
             assert res.verbose == 0
@@ -433,6 +495,16 @@ class TestRunner(object):
             assert res.verbose == 0
             assert res.tf_path == '/path/to/tf'
             assert res.stream_tf is False
+
+    def test_parse_args_apilogs(self):
+        res = parse_args(['apilogs'])
+        assert res.action == 'apilogs'
+        assert res.log_count == 10
+
+    def test_parse_args_apilogs_count(self):
+        res = parse_args(['apilogs', '-c', '3'])
+        assert res.action == 'apilogs'
+        assert res.log_count == 3
 
     def test_parse_args_logs(self):
         res = parse_args(['logs'])
@@ -585,6 +657,66 @@ class TestRunner(object):
             call.info('Unable to find API base_url from Terraform state; '
                       'querying AWS.', exc_info=1),
             call.debug('AWS api_base_url: \'%s\'', 'au/')
+        ]
+
+    def test_get_api_id_tf(self):
+        conf = Mock()
+        args = Mock(tf_path='tfpath')
+        with patch.multiple(
+            pbm,
+            autospec=True,
+            logger=DEFAULT,
+            TerraformRunner=DEFAULT,
+            AWSInfo=DEFAULT
+        ) as mocks:
+            mocks['TerraformRunner'].return_value._get_outputs.return_value = {
+                'base_url': 'mytfbase',
+                'rest_api_id': 'myid'
+            }
+            res = get_api_id(conf, args)
+        assert res == 'myid'
+        assert mocks['TerraformRunner'].mock_calls == [
+            call(conf, 'tfpath'),
+            call()._get_outputs()
+        ]
+        assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['logger'].mock_calls == [
+            call.debug('Trying to get Terraform rest_api_id output'),
+            call.debug('Terraform rest_api_id output: \'%s\'', 'myid')
+        ]
+
+    def test_get_api_id_aws(self):
+
+        def se_exc(*args, **kwargs):
+            raise Exception()
+
+        conf = Mock()
+        args = Mock(tf_path='tfpath')
+        with patch.multiple(
+            pbm,
+            autospec=True,
+            logger=DEFAULT,
+            TerraformRunner=DEFAULT,
+            AWSInfo=DEFAULT
+        ) as mocks:
+            mocks['TerraformRunner'].return_value._get_outputs.side_effect = \
+                se_exc
+            mocks['AWSInfo'].return_value.get_api_id.return_value = 'myaid'
+            res = get_api_id(conf, args)
+        assert res == 'myaid'
+        assert mocks['TerraformRunner'].mock_calls == [
+            call(conf, 'tfpath'),
+            call()._get_outputs()
+        ]
+        assert mocks['AWSInfo'].mock_calls == [
+            call(conf),
+            call().get_api_id()
+        ]
+        assert mocks['logger'].mock_calls == [
+            call.debug('Trying to get Terraform rest_api_id output'),
+            call.info('Unable to find API rest_api_id from Terraform state; '
+                      'querying AWS.', exc_info=1),
+            call.debug('AWS API ID: \'%s\'', 'myaid')
         ]
 
     @freeze_time("2016-07-01 02:03:04")

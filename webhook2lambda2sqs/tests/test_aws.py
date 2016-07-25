@@ -113,6 +113,43 @@ class TestAWSInfo(object):
             call.debug('Found %d log streams', 3)
         ]
 
+    def test_show_cloudwatch_logs_grp_name(self, capsys):
+        resp = {
+            'logStreams': [
+                {'logStreamName': 's1'},
+                {'logStreamName': 's2'},
+                {'logStreamName': 's3'}
+            ]
+        }
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s.client' % pbm, autospec=True) as mock_conn:
+                with patch('%s._show_log_stream' % pb, autospec=True) as sls:
+                    mock_conn.return_value.describe_log_streams.return_value = \
+                        resp
+                    sls.side_effect = [1, 10]
+                    self.cls.show_cloudwatch_logs(5, grp_name='foobar')
+        out, err = capsys.readouterr()
+        assert err == ''
+        assert out == ''
+        assert mock_conn.mock_calls == [
+            call('logs'),
+            call().describe_log_streams(descending=True, limit=5,
+                                        logGroupName='foobar',
+                                        orderBy='LastEventTime')
+        ]
+        assert sls.mock_calls == [
+            call(self.cls,
+                 mock_conn.return_value, 'foobar', 's1', 5),
+            call(self.cls,
+                 mock_conn.return_value, 'foobar', 's2', 4),
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('Log Group Name: %s', 'foobar'),
+            call.debug('Connecting to AWS Logs API'),
+            call.debug('Getting log streams'),
+            call.debug('Found %d log streams', 3)
+        ]
+
     def test_show_cloudwatch_logs_none(self, capsys):
         resp = {
             'logStreams': []
@@ -435,7 +472,7 @@ class TestAWSInfo(object):
             call.get_queue_url(QueueName='foo')
         ]
 
-    def test_get_api_base_url(self):
+    def test_get_api_id(self):
         mock_conf = Mock(region_name='myrname')
         apis = {
             'items': [
@@ -448,9 +485,8 @@ class TestAWSInfo(object):
             with patch('%s.logger' % pbm, autospec=True) as mock_logger:
                 mock_client.return_value.get_rest_apis.return_value = apis
                 type(mock_client.return_value)._client_config = mock_conf
-                res = self.cls.get_api_base_url()
-        assert res == 'https://apiid2.execute-api.myrname.amazonaws.com/' \
-                      'webhook2lambda2sqs/'
+                res = self.cls.get_api_id()
+        assert res == 'apiid2'
         assert mock_client.mock_calls == [
             call('apigateway'),
             call().get_rest_apis()
@@ -474,7 +510,7 @@ class TestAWSInfo(object):
                 mock_client.return_value.get_rest_apis.return_value = apis
                 type(mock_client.return_value)._client_config = mock_conf
                 with pytest.raises(Exception) as excinfo:
-                    self.cls.get_api_base_url()
+                    self.cls.get_api_id()
         assert exc_msg(excinfo.value) == 'Unable to find ReST API named myfname'
         assert mock_client.mock_calls == [
             call('apigateway'),
@@ -483,3 +519,14 @@ class TestAWSInfo(object):
         assert mock_logger.mock_calls == [
             call.debug('Connecting to AWS apigateway API')
         ]
+
+    def test_get_api_base_url(self):
+        mock_conf = Mock(region_name='myrname')
+        with patch('%s.get_api_id' % pb, autospec=True) as mock_id:
+            with patch('%s.client' % pbm, autospec=True) as mock_client:
+                type(mock_client.return_value)._client_config = mock_conf
+                mock_id.return_value = 'apiid2'
+                res = self.cls.get_api_base_url()
+        assert res == 'https://apiid2.execute-api.myrname.amazonaws.com/' \
+                      'webhook2lambda2sqs/'
+        assert mock_id.mock_calls == [call(self.cls)]
