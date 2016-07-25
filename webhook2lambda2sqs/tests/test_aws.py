@@ -237,10 +237,16 @@ class TestAWSInfo(object):
         assert mock_aqn.mock_calls == []
 
     def test_show_queue_all(self):
+
+        def se_show(cls, conn, name, count, delete=False):
+            if name == 'bar':
+                raise Exception()
+
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s.client' % pbm, autospec=True) as mock_sqs:
                 with patch('%s._show_one_queue' % pb,
                            autospec=True) as mock_show:
+                    mock_show.side_effect = se_show
                     with patch('%s._all_queue_names' % pb,
                                new_callable=PropertyMock, create=True
                                ) as mock_aqn:
@@ -253,7 +259,8 @@ class TestAWSInfo(object):
             call(self.cls, mock_sqs.return_value, 'baz', 3, delete=True)
         ]
         assert mock_logger.mock_calls == [
-            call.debug('Connecting to SQS API')
+            call.debug('Connecting to SQS API'),
+            call.error('Error showing queue \'%s\'', 'bar', exc_info=1)
         ]
         assert mock_aqn.mock_calls == [
             call()

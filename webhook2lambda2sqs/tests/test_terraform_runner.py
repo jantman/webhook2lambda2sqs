@@ -221,6 +221,46 @@ class TestTerraformRunner(object):
             call.warning("Terraform plan finished successfully.")
         ]
 
+    def test_taint_deployment(self):
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s._set_remote' % pb, autospec=True) as mock_set:
+                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                    mock_run.return_value = 'output'
+                    cls._taint_deployment()
+        assert mock_set.mock_calls == []
+        assert mock_run.mock_calls == [
+            call(cls, 'taint', cmd_args=['aws_api_gateway_deployment.depl'],
+                 stream=False)
+        ]
+        assert mock_logger.mock_calls == [
+            call.warning('Running terraform taint: %s as workaround for '
+                         '<https://github.com/hashicorp/terraform/issues/6613>',
+                         'aws_api_gateway_deployment.depl'),
+            call.warning("Terraform taint finished successfully:\n%s", 'output')
+        ]
+
+    def test_taint_deployment_stream(self):
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s._set_remote' % pb, autospec=True) as mock_set:
+                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                    mock_run.return_value = 'output'
+                    cls._taint_deployment(stream=True)
+        assert mock_set.mock_calls == []
+        assert mock_run.mock_calls == [
+            call(cls, 'taint', cmd_args=['aws_api_gateway_deployment.depl'],
+                 stream=True)
+        ]
+        assert mock_logger.mock_calls == [
+            call.warning('Running terraform taint: %s as workaround for '
+                         '<https://github.com/hashicorp/terraform/issues/6613>',
+                         'aws_api_gateway_deployment.depl'),
+            call.warning("Terraform taint finished successfully.")
+        ]
+
     def test_apply(self):
         with patch('%s._validate' % pb):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
