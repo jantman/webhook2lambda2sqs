@@ -86,6 +86,9 @@ class TestAccpetance(object):
             return None
         for m in msgs['Messages']:
             j = json.loads(m['Body'])
+            if ('data' not in j or 'method' not in j['data'] or
+                        'run_id' not in j['data']):
+                continue
             if (j['data']['method'] == method_name and
                     j['data']['run_id'] == run_id):
                 return m['MessageId']

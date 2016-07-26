@@ -44,6 +44,7 @@ import logging
 import json
 import boto3
 import time
+import requests
 
 from webhook2lambda2sqs.tests.test_acceptance import acceptance_config
 from webhook2lambda2sqs.runner import main as runner_main
@@ -106,9 +107,26 @@ def acceptance_fixture(request):
         raise ex
     request.addfinalizer(acceptance_teardown)
     test_run_identifier = str(time.time())
-    sys.stderr.write("\nSLEEPING 10s for API deployment to stabilize\n")
+    sys.stderr.write("\nSLEEPING 120s for API deployment to stabilize\n")
+    time.sleep(120)
+    sys.stderr.write("Sending requests to all endpoints...\n")
+    hit_all_endpoints(base_url)
+    sys.stderr.write("Sleeping 10s...\n")
     time.sleep(10)
     return base_url, test_run_identifier
+
+
+def hit_all_endpoints(base_url):
+    """
+    Send 3 requests to each endpoint. Perhaps this will help prime the API.
+    """
+    for i in range(0, 3):
+        for ep in acceptance_config['endpoints']:
+            url = base_url + ep + '/'
+            if acceptance_config['endpoints'][ep]['method'] == 'GET':
+                requests.get(url, params={'foo': 'bar', 'warmup': 1})
+            else:
+                requests.post(url, params={'foo': 'bar', 'warmup': 1})
 
 
 def tear_down_acceptance(dir_path):
