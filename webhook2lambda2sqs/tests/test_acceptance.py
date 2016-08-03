@@ -39,6 +39,7 @@ import pytest
 import requests
 import boto3
 import json
+import time
 
 from webhook2lambda2sqs.utils import pretty_json
 
@@ -81,16 +82,19 @@ class TestAccpetance(object):
         # we want to get ALL messages in the queue
         seen_ids = []
         all_msgs = []
-        polls = 0
-        while polls < 20:
-            polls += 1
+        empty_polls = 0
+        # continue getting messages until we get 2 empty polls in a row
+        while empty_polls < 2:
             msgs = conn.receive_message(
                 QueueUrl=qurl,
                 MaxNumberOfMessages=10,
-                VisibilityTimeout=0,
+                VisibilityTimeout=240,
                 WaitTimeSeconds=20
             )
-            if 'Messages' in msgs:
+            if 'Messages' in msgs and len(msgs['Messages']) > 0:
+                empty_polls = 0
+                print("Queue %s - got %d messages" % (
+                    queuename, len(msgs['Messages'])))
                 for m in msgs['Messages']:
                     if m['MessageId'] in seen_ids:
                         continue
@@ -100,8 +104,10 @@ class TestAccpetance(object):
                         QueueUrl=qurl, ReceiptHandle=m['ReceiptHandle'])
                 continue
             # no messages found
-            if polls > 3:
-                break
+            #print('Queue %s - got no messages; sleeping 10s' % queuename)
+            print('Queue %s - got no messages' % queuename)
+            empty_polls += 1
+            #time.sleep(10)
         print("Queue %s - %d messages:" % (queuename, len(all_msgs)))
         for m in all_msgs:
             j = json.loads(m['Body'])
