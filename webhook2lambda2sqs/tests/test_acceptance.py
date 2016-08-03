@@ -40,6 +40,8 @@ import requests
 import boto3
 import json
 
+from webhook2lambda2sqs.utils import pretty_json
+
 acceptance_config = {
     'endpoints': {
         'goodQueue': {
@@ -76,19 +78,41 @@ class TestAccpetance(object):
         """
         conn = boto3.client('sqs')
         qurl = conn.get_queue_url(QueueName=queuename)['QueueUrl']
-        msgs = conn.receive_message(
-            QueueUrl=qurl,
-            MaxNumberOfMessages=10,
-            VisibilityTimeout=5,
-            WaitTimeSeconds=10
-        )
-        if 'Messages' not in msgs:
-            return None
-        for m in msgs['Messages']:
+        # we want to get ALL messages in the queue
+        seen_ids = []
+        all_msgs = []
+        polls = 0
+        while polls < 20:
+            polls += 1
+            msgs = conn.receive_message(
+                QueueUrl=qurl,
+                MaxNumberOfMessages=10,
+                VisibilityTimeout=0,
+                WaitTimeSeconds=20
+            )
+            if 'Messages' in msgs:
+                for m in msgs['Messages']:
+                    if m['MessageId'] in seen_ids:
+                        continue
+                    seen_ids.append(m['MessageId'])
+                    all_msgs.append(m)
+                    conn.delete_message(
+                        QueueUrl=qurl, ReceiptHandle=m['ReceiptHandle'])
+                continue
+            # no messages found
+            if polls > 3:
+                break
+        print("Queue %s - %d messages:" % (queuename, len(all_msgs)))
+        for m in all_msgs:
             j = json.loads(m['Body'])
             if ('data' not in j or 'method' not in j['data'] or
                     'run_id' not in j['data']):
+                print("=> Queue %s: %s - non-matching message:\n%s" % (
+                    queuename, m['MessageId'], pretty_json(j)
+                ))
                 continue
+            print("=> Queue %s: %s - method=%s run_id=%s" % (queuename,
+                m['MessageId'], j['data']['method'], j['data']['run_id']))
             if (j['data']['method'] == method_name and
                     j['data']['run_id'] == run_id):
                 return m['MessageId']
