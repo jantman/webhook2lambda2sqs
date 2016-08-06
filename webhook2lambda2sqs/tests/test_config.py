@@ -145,7 +145,7 @@ class TestConfig(object):
         assert excinfo.value._orig_message == 'configuration must have at ' \
                                               'least one endpoint'
 
-    def test_bad_method(self):
+    def test_validate_bad_method(self):
         self.cls._config = deepcopy(self.cls._example)
         self.cls._config['endpoints']['other_resource_path']['method'] = 'FOO'
         with pytest.raises(InvalidConfigError) as excinfo:
@@ -155,7 +155,7 @@ class TestConfig(object):
                                               'allowed methods: ' \
                                               '%s)' % self.cls._allowed_methods
 
-    def test_endpoint_missing_key(self):
+    def test_validate_endpoint_missing_key(self):
         self.cls._config = deepcopy(self.cls._example)
         del self.cls._config['endpoints']['other_resource_path']['method']
         with pytest.raises(InvalidConfigError) as excinfo:
@@ -164,7 +164,7 @@ class TestConfig(object):
                                               'configuration keys must be ' \
                                               '"method" and "queues".'
 
-    def test_endpoint_additional_key(self):
+    def test_validate_endpoint_additional_key(self):
         self.cls._config = deepcopy(self.cls._example)
         self.cls._config['endpoints']['other_resource_path']['foo'] = 'bar'
         with pytest.raises(InvalidConfigError) as excinfo:
@@ -172,3 +172,13 @@ class TestConfig(object):
         assert excinfo.value._orig_message == 'Endpoint other_resource_path ' \
                                               'configuration keys must be ' \
                                               '"method" and "queues".'
+
+    def test_validate_bad_logging_level(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['logging_level'] = 'foobar'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'logging_level must be one of ' \
+                                              '%s' % ['CRITICAL', 'ERROR',
+                                                      'WARNING', 'INFO',
+                                                      'DEBUG', 'NOTSET']

@@ -61,6 +61,7 @@ class Config(object):
     _example = {
         'name_suffix': 'something',
         'deployment_stage_name': 'something',
+        'logging_level': 'INFO',
         'endpoints': {
             'some_resource_path': {
                 'method': 'POST',
@@ -92,6 +93,9 @@ class Config(object):
       - value is a dict with the following keys:
         - 'method' - HTTP method for API Gateway resource
         - 'queues' - list of SQS queue names to push request content to
+    logging_level - the Python logging level (constant name) to set for the
+      lambda function. Defaults to INFO. Currently the function only logs at
+      ERROR and DEBUG levels.
     name_suffix - (optional) by default, all AWS resources will be named
       "webhook2lambda2sqs"; specify a suffix to add to that name here.
     terraform_remote_state - (optional) dict of Terraform remote state options.
@@ -145,6 +149,10 @@ class Config(object):
                                          '(allowed methods: %s'
                                          ')' % (ep, meth,
                                                 self._allowed_methods))
+        levels = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'NOTSET']
+        if ('logging_level' in self._config and
+                self._config['logging_level'] not in levels):
+            raise InvalidConfigError('logging_level must be one of %s' % levels)
 
     def get(self, key):
         """
