@@ -94,23 +94,6 @@ class TerraformGenerator(object):
         return 'push webhook contents to SQS - generated and managed by ' \
                '%s v%s' % (PROJECT_URL, VERSION)
 
-    def _get_tags(self):
-        """
-        Return a dict of tags to apply to AWS resources.
-
-        :return: dict of tags to apply to AWS resources
-        :rtype: dict
-        """
-        tags = self.config.get('aws_tags')
-        if tags is None:
-            tags = {}
-        if 'Name' not in tags:
-            tags['Name'] = self.resource_name
-        tags['created_by'] = 'webhook2lambda2sqs v%s <%s>' % (
-            VERSION, PROJECT_URL)
-        logger.debug('AWS Tags: %s', tags)
-        return tags
-
     def _generate_iam_role_policy(self):
         """
         Generate the policy for the IAM Role.

@@ -111,10 +111,6 @@ Example output of the ``example-config`` action::
 
     $ webhook2lambda2sqs example-config
     {
-        "aws_tags": {
-            "tag2_name": "tag2_value",
-            "tag_name": "tag_value"
-        },
         "endpoints": {
             "some_resource_name": {
                 "method": "POST",
@@ -135,10 +131,6 @@ Example output of the ``example-config`` action::
 
     Configuration description:
 
-    aws_tags - a dict of key/value pairs to set as tags on all terraform-managed
-      resources that support tagging. If not specified here, a "Name" tag will
-      automatically be added with a value as described in the "name_suffix"
-      description below.
     endpoints - dict describing each webhook endpoint to setup in API Gateway.
       - key is the API Gateway resource name (final component of the URL)
       - value is a dict with the following keys:

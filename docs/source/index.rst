@@ -32,6 +32,10 @@ webhook2lambda2sqs
    :target: https://readthedocs.org/projects/webhook2lambda2sqs/?badge=latest
    :alt: sphinx documentation for latest release
 
+.. image:: https://badge.waffle.io/jantman/webhook2lambda2sqs.png?label=ready&title=Ready
+   :target: https://waffle.io/jantman/webhook2lambda2sqs
+   :alt: 'Stories in Ready'
+
 .. image:: http://www.repostatus.org/badges/latest/wip.svg
    :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
    :target: http://www.repostatus.org/#wip
@@ -110,10 +114,6 @@ Example output of the ``example-config`` action::
 
     $ webhook2lambda2sqs example-config
     {
-        "aws_tags": {
-            "tag2_name": "tag2_value",
-            "tag_name": "tag_value"
-        },
         "endpoints": {
             "some_resource_name": {
                 "method": "POST",

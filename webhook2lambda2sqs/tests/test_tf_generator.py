@@ -115,30 +115,6 @@ class TestTerraformGenerator(object):
                                        'generated and managed by %s ' \
                                        'v%s' % (PROJECT_URL, VERSION)
 
-    def test_get_tags(self):
-        self.conf = {
-            'aws_tags': {
-                'Name': 'myname',
-                'other': 'otherval',
-                'foo': 'bar'
-            }
-        }
-        res = self.cls._get_tags()
-        assert res == {
-            'Name': 'myname',
-            'other': 'otherval',
-            'foo': 'bar',
-            'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
-        }
-
-    def test_get_tags_none(self):
-        del self.conf['aws_tags']
-        res = self.cls._get_tags()
-        assert res == {
-            'Name': 'myFuncName',
-            'created_by': 'webhook2lambda2sqs v%s <%s>' % (VERSION, PROJECT_URL)
-        }
-
     def test_generate_iam_role_policy(self):
         self.cls._generate_iam_role_policy()
         expected_pol = {

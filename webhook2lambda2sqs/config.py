@@ -75,21 +75,12 @@ class Config(object):
             'config': {
                 'option_name': 'option_value'
             }
-        },
-        'aws_tags': {
-            'tag_name': 'tag_value',
-            'tag2_name': 'tag2_value'
         }
     }
 
     _example_docs = """
     Configuration description:
 
-    aws_tags - a dict of key/value pairs to set as tags on all terraform-managed
-      resources that support tagging. If not specified here, a "Name" tag will
-      automatically be added with a value as described in the "name_suffix"
-      description below. A "created_by" tag will be added with information
-      about the this program and its version will be added to this dict.
     endpoints - dict describing each webhook endpoint to setup in API Gateway.
       - key is the API Gateway resource name (final component of the URL)
       - value is a dict with the following keys:
