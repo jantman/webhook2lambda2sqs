@@ -36,8 +36,9 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 import sys
 import pytest
+from copy import deepcopy
 
-from webhook2lambda2sqs.config import Config
+from webhook2lambda2sqs.config import Config, InvalidConfigError
 from webhook2lambda2sqs.tests.support import exc_msg
 
 # https://code.google.com/p/mock/issues/detail?id=249
@@ -54,30 +55,33 @@ pbm = 'webhook2lambda2sqs.config'
 pb = '%s.Config' % pbm
 
 
+class TestInvalidConfigError(object):
+
+    def test_it(self):
+        exc = InvalidConfigError('foo')
+        assert exc._orig_message == 'foo'
+        assert exc_msg(exc) == 'Invalid Configuration File: foo'
+
+
 class TestConfig(object):
 
     def setup(self):
         with patch('%s._load_config' % pb, autospec=True) as mock_load:
-            mock_load.return_value = {'my': 'config', 'endpoints': {'a': 1}}
-            self.cls = Config('confpath')
+            with patch('%s._validate_config' % pb):
+                mock_load.return_value = {'my': 'config', 'endpoints': {'a': 1}}
+                self.cls = Config('confpath')
 
     def test_init(self):
         with patch('%s._load_config' % pb, autospec=True) as mock_load:
-            mock_load.return_value = {'my': 'config', 'endpoints': {'a': 1}}
-            cls = Config('mypath')
+            with patch('%s._validate_config' % pb, autospec=True) as mock_v:
+                mock_load.return_value = {'my': 'config', 'endpoints': {'a': 1}}
+                cls = Config('mypath')
         assert cls.path == 'mypath'
         assert cls._config == {'my': 'config', 'endpoints': {'a': 1}}
         assert mock_load.mock_calls == [
             call(cls, 'mypath')
         ]
-
-    def test_init_no_endpoints(self):
-        with patch('%s._load_config' % pb, autospec=True) as mock_load:
-            mock_load.return_value = {'my': 'config'}
-            with pytest.raises(Exception) as excinfo:
-                Config('mypath')
-            assert exc_msg(excinfo.value) == 'Error: configuration must have ' \
-                                             'at least 1 endpoint'
+        assert mock_v.mock_calls == [call(cls)]
 
     def test_load_config(self):
         with patch('%s.read_json_file' % pbm, autospec=True) as mock_read:
@@ -113,3 +117,50 @@ class TestConfig(object):
         assert self.cls.get('foo') == 'bar'
         assert self.cls.get('baz') == {'blam': 'blarg'}
         assert self.cls.get('badkey') is None
+
+    def test_validate_ok(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._validate_config()
+
+    def test_validate_bad_keys(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['foo'] = 'bar'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'Invalid keys: %s' % ['foo']
+
+    def test_validate_no_endpoints(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['endpoints'] = {}
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'configuration must have at ' \
+                                              'least one endpoint'
+
+    def test_bad_method(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['endpoints']['other_resource_path']['method'] = 'FOO'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'Endpoint other_resource_path ' \
+                                              'method FOO not allowed (' \
+                                              'allowed methods: ' \
+                                              '%s)' % self.cls._allowed_methods
+
+    def test_endpoint_missing_key(self):
+        self.cls._config = deepcopy(self.cls._example)
+        del self.cls._config['endpoints']['other_resource_path']['method']
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'Endpoint other_resource_path ' \
+                                              'configuration keys must be ' \
+                                              '"method" and "queues".'
+
+    def test_endpoint_additional_key(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['endpoints']['other_resource_path']['foo'] = 'bar'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'Endpoint other_resource_path ' \
+                                              'configuration keys must be ' \
+                                              '"method" and "queues".'

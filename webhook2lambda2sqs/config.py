@@ -44,7 +44,19 @@ from webhook2lambda2sqs.utils import pretty_json, read_json_file
 logger = logging.getLogger(__name__)
 
 
+class InvalidConfigError(Exception):
+    """Raised for configuration errors"""
+
+    def __init__(self, message):
+        msg = "Invalid Configuration File: %s" % message
+        self._orig_message = message
+        self.message = msg
+        super(InvalidConfigError, self).__init__(msg)
+
+
 class Config(object):
+
+    _allowed_methods = ['POST', 'GET']
 
     _example = {
         'name_suffix': 'something',
@@ -87,7 +99,8 @@ class Config(object):
       "webhook2lambda2sqs"; specify a suffix to add to that name here.
     terraform_remote_state - dict of Terraform remote state options. If
       specified, will call 'terraform remote config' before every terraform
-      command to setup remote state storage.
+      command to setup remote state storage. See:
+      https://www.terraform.io/docs/state/remote/index.html
 
       Dict keys:
       - 'backend' - name of the terraform remote state backend to configure
@@ -103,10 +116,38 @@ class Config(object):
         """
         self.path = path
         self._config = self._load_config(path)
+        self._validate_config()
+
+    def _validate_config(self):
+        """
+        Validate configuration file.
+        :raises: RuntimeError
+        """
+        # while set().issubset() is easier, we want to tell the user the names
+        # of any invalid keys
+        bad_keys = []
+        for k in self._config.keys():
+            if k not in self._example.keys():
+                bad_keys.append(k)
+        if len(bad_keys) > 0:
+            raise InvalidConfigError('Invalid keys: %s' % bad_keys)
+        # endpoints
         if 'endpoints' not in self._config or len(
                 self._config['endpoints']) < 1:
-            raise Exception(
-                'Error: configuration must have at least 1 endpoint')
+            raise InvalidConfigError('configuration must have '
+                                     'at least one endpoint')
+        for ep in self._config['endpoints']:
+            if sorted(
+                    self._config['endpoints'][ep].keys()
+            ) != ['method', 'queues']:
+                raise InvalidConfigError('Endpoint %s configuration keys must '
+                                         'be "method" and "queues".' % ep)
+            meth = self._config['endpoints'][ep]['method']
+            if meth not in self._allowed_methods:
+                raise InvalidConfigError('Endpoint %s method %s not allowed '
+                                         '(allowed methods: %s'
+                                         ')' % (ep, meth,
+                                                self._allowed_methods))
 
     def get(self, key):
         """
