@@ -108,9 +108,13 @@ class TestConfig(object):
         self.cls._config = {}
         assert self.cls.func_name == 'webhook2lambda2sqs'
 
-    def test_func_name_suffix(self):
-        self.cls._config = {'name_suffix': 'foo'}
-        assert self.cls.func_name == 'webhook2lambda2sqsfoo'
+    def test_stage_name(self):
+        self.cls._config = {}
+        assert self.cls.stage_name == 'webhook2lambda2sqs'
+
+    def test_stage_name_custom(self):
+        self.cls._config = {'deployment_stage_name': 'foo'}
+        assert self.cls.stage_name == 'foo'
 
     def test_get(self):
         self.cls._config = {'foo': 'bar', 'baz': {'blam': 'blarg'}}

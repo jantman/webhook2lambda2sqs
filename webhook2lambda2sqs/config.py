@@ -60,6 +60,7 @@ class Config(object):
 
     _example = {
         'name_suffix': 'something',
+        'deployment_stage_name': 'something',
         'endpoints': {
             'some_resource_path': {
                 'method': 'POST',
@@ -81,15 +82,20 @@ class Config(object):
     _example_docs = """
     Configuration description:
 
+    deployment_stage_name - (optional) String used as the name for the API
+      Gateway Deployment Stage, which will be the beginning component of the
+      URL path for the API Gateway
+      (i.e. https://<api id>.execute-api.us-east-1.amazonaws.com/STAGE_NAME/).
+      Defaults to "webhook2lambda2sqs".
     endpoints - dict describing each webhook endpoint to setup in API Gateway.
       - key is the API Gateway resource name (final component of the URL)
       - value is a dict with the following keys:
         - 'method' - HTTP method for API Gateway resource
         - 'queues' - list of SQS queue names to push request content to
-    name_suffix - by default, all AWS resources will be named
+    name_suffix - (optional) by default, all AWS resources will be named
       "webhook2lambda2sqs"; specify a suffix to add to that name here.
-    terraform_remote_state - dict of Terraform remote state options. If
-      specified, will call 'terraform remote config' before every terraform
+    terraform_remote_state - (optional) dict of Terraform remote state options.
+      If specified, will call 'terraform remote config' before every terraform
       command to setup remote state storage. See:
       https://www.terraform.io/docs/state/remote/index.html
 
@@ -176,6 +182,19 @@ class Config(object):
         name = 'webhook2lambda2sqs'
         if self.get('name_suffix') is not None:
             name += self.get('name_suffix')
+        return name
+
+    @property
+    def stage_name(self):
+        """
+        Return the string to use for our API Gateway Deployment Stage name.
+
+        :return: API Gateway Deployment Stage name
+        :rtype: str
+        """
+        name = self.get('deployment_stage_name')
+        if name is None:
+            name = 'webhook2lambda2sqs'
         return name
 
     @staticmethod
