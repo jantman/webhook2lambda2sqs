@@ -326,8 +326,8 @@ def main(args=None):
         aws = AWSInfo(config)
         aws.show_cloudwatch_logs(
             count=args.log_count,
-            grp_name='API-Gateway-Execution-Logs_%s/webhook2lambda2sqs' % (
-                api_id
+            grp_name='API-Gateway-Execution-Logs_%s/%s' % (
+                api_id, config.stage_name
             )
         )
         return

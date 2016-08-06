@@ -415,6 +415,7 @@ class TestRunner(object):
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 type(mocks['Config'].return_value).func_name = 'myfname'
+                type(mocks['Config'].return_value).stage_name = 'mysname'
                 mocks['get_api_id'].return_value = 'did'
                 main(mock_args)
         assert mocks['Config'].mock_calls == [call('cpath')]
@@ -428,7 +429,7 @@ class TestRunner(object):
             call(mocks['Config'].return_value),
             call().show_cloudwatch_logs(
                 count=6,
-                grp_name='API-Gateway-Execution-Logs_did/webhook2lambda2sqs'
+                grp_name='API-Gateway-Execution-Logs_did/mysname'
             )
         ]
         assert mocks['get_api_id'].mock_calls == [
