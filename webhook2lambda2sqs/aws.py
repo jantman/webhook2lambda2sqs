@@ -39,6 +39,7 @@ import logging
 from boto3 import client
 from datetime import datetime
 import json
+from pprint import pformat
 
 from webhook2lambda2sqs.utils import pretty_json
 
@@ -46,6 +47,18 @@ logger = logging.getLogger(__name__)
 
 
 class AWSInfo(object):
+
+    # API Gateway Stage methodSetting paths
+    # see <https://docs.aws.amazon.com/apigateway/api-reference/resource/
+    # stage/#methodSettings>
+    # These have '%s' as a placeholder for the method_setting_key
+    _method_setting_paths = {
+        'metricsEnabled': '/%s/metrics/enabled',
+        'loggingLevel': '/%s/logging/loglevel',
+        'dataTraceEnabled': '/%s/logging/dataTrace',
+        'throttlingBurstLimit': '/%s/throttling/burstLimit',
+        'throttlingRateLimit': '/%s/throttling/rateLimit'
+    }
 
     def __init__(self, config):
         self.config = config
@@ -283,3 +296,87 @@ class AWSInfo(object):
             raise Exception('Unable to find ReST API named %s' %
                             self.config.func_name)
         return api_id
+
+    def set_method_settings(self):
+        """
+        Set the Method settings <https://docs.aws.amazon.com/apigateway/api-
+        reference/resource/stage/#methodSettings> on our Deployment Stage.
+        This is currently not supported by Terraform; see <https://github.com/
+        jantman/webhook2lambda2sqs/issues/7> and <https://github.com/hashicorp
+        /terraform/issues/6612>.
+        """
+        settings = self.config.get('api_gateway_method_settings')
+        if settings is None:
+            logger.debug('api_gateway_method_settings not set in config')
+            return
+        logger.info('Setting API Gateway Stage methodSettings')
+        api_id = self.get_api_id()
+        stage_name = self.config.stage_name
+        logger.debug('Connecting to AWS apigateway API')
+        conn = client('apigateway')
+        logger.debug('Getting Stage configuration: api_id=%s stage_name=%s',
+                     api_id, stage_name)
+        stage = conn.get_stage(restApiId=api_id, stageName=stage_name)
+        logger.debug("Got stage config: \n%s", pformat(stage))
+        # hack for stages that have had no method settings applied yet
+        if '*/*' not in stage['methodSettings']:
+            stage['methodSettings']['*/*'] = {}
+        curr_settings = stage['methodSettings']['*/*']
+        for k, v in sorted(settings.items()):
+            if k in curr_settings and curr_settings[k] == v:
+                logger.debug('methodSetting "%s" is correct (%s)', k, v)
+                continue
+            # else update the value; note that the API doesn't actually follow
+            # https://tools.ietf.org/html/rfc6902#section-4 and doesn't seem
+            # to actually accept 'add' for these.
+            op = 'replace'
+            if k not in curr_settings:
+                logger.debug('Adding new methodSetting "%s" value %s', k, v)
+            else:
+                logger.debug('Updating methodSetting "%s" from %s to %s',
+                             k, curr_settings[k], v)
+            self._add_method_setting(conn, api_id, stage_name,
+                                     self._method_setting_paths[k] % '*/*',
+                                     k, v, op)
+
+    def _add_method_setting(self, conn, api_id, stage_name, path, key, value,
+                            op):
+        """
+        Update a single method setting on the specified stage. This uses the
+        'add' operation to PATCH the resource.
+
+        :param conn: APIGateway API connection
+        :type conn: :py:class:`botocore:APIGateway.Client`
+        :param api_id: ReST API ID
+        :type api_id: str
+        :param stage_name: stage name
+        :type stage_name: str
+        :param path: path to patch (see https://docs.aws.amazon.com/apigateway
+        /api-reference/resource/stage/#methodSettings)
+        :type path: str
+        :param key: the dictionary key this should update
+        :type key: str
+        :param value: new value to set
+        :param op: PATCH operation to perform, 'add' or 'replace'
+        :type op: str
+        """
+        logger.debug('update_stage PATCH %s on %s; value=%s',
+                     op, path, str(value))
+        res = conn.update_stage(
+            restApiId=api_id,
+            stageName=stage_name,
+            patchOperations=[
+                {
+                    'op': op,
+                    'path': path,
+                    'value': str(value)
+                }
+            ]
+        )
+        if res['methodSettings']['*/*'][key] != value:
+            logger.error('methodSettings PATCH expected to update %s to %s,'
+                         'but instead found value as %s', key, value,
+                         res['methodSettings']['*/*'][key])
+        else:
+            logger.info('Successfully updated methodSetting %s to %s',
+                        key, value)

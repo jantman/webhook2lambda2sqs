@@ -91,7 +91,9 @@ class Config(object):
     Configuration description:
 
     api_gateway_method_settings - (optional) Dictionary of API Gateway Method
-      settings to enable. See %s for upstream documentation. Due to a limitation
+      settings to enable. See
+      %s
+      for upstream documentation. Due to a limitation
       in Terraform (https://github.com/hashicorp/terraform/issues/6612), these
       settings are applied by this program via the AWS API after Terraform has
       run; if you use this program to generate Terraform configurations and
@@ -106,25 +108,33 @@ class Config(object):
       - 'dataTraceEnabled' - (boolean, default False) whether to enable data
         trace logging to CloudWatch Logs for the API Gateway.
       - 'throttlingBurstLimit' - (integer, default None) API Gateway throttling
-        burst limit. Omit to not set this option.
+        burst limit - see:
+        <%s>
+        Omit to not set this option.
       - 'throttlingRateLimit' - (double, default None) API Gateway throttling
-        rate limit. Omit to not set this option.
+        rate limit (requests per second). See:
+        %s
+        Omit to not set this option.
 
     deployment_stage_name - (optional) String used as the name for the API
       Gateway Deployment Stage, which will be the beginning component of the
       URL path for the API Gateway
       (i.e. https://<api id>.execute-api.us-east-1.amazonaws.com/STAGE_NAME/).
       Defaults to "webhook2lambda2sqs".
+
     endpoints - dict describing each webhook endpoint to setup in API Gateway.
       - key is the API Gateway resource name (final component of the URL)
       - value is a dict with the following keys:
         - 'method' - HTTP method for API Gateway resource
         - 'queues' - list of SQS queue names to push request content to
+
     logging_level - the Python logging level (constant name) to set for the
       lambda function. Defaults to INFO. Currently the function only logs at
       ERROR and DEBUG levels.
+
     name_suffix - (optional) by default, all AWS resources will be named
       "webhook2lambda2sqs"; specify a suffix to add to that name here.
+
     terraform_remote_state - (optional) dict of Terraform remote state options.
       If specified, will call 'terraform remote config' before every terraform
       command to setup remote state storage. See:
@@ -133,8 +143,14 @@ class Config(object):
       Dict keys:
       - 'backend' - name of the terraform remote state backend to configure
       - 'config' - dict of backend configuration option name/value pairs
-    """ % '<https://docs.aws.amazon.com/apigateway/api-reference/resource/' \
-          'stage/#methodSettings>'
+    """ % (
+        '<https://docs.aws.amazon.com/apigateway/api-reference/resource/'
+        'stage/#methodSettings>',
+        'http://docs.aws.amazon.com/apigateway/latest/developerguide/'
+        'api-gateway-request-throttling.html?icmpid=docs_apigateway_console',
+        'http://docs.aws.amazon.com/apigateway/latest/developerguide/'
+        'api-gateway-request-throttling.html?icmpid=docs_apigateway_console'
+    )
 
     def __init__(self, path):
         """

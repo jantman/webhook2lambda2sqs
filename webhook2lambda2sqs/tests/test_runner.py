@@ -185,7 +185,62 @@ class TestRunner(object):
         test main function
         """
 
+        def se_get(name):
+            return None
+
         mock_args = Mock(verbose=2, action='genapply', config='cpath',
+                         stream_tf=True, tf_path='terraform')
+        with patch('%s.logger' % pbm, autospec=True) as mocklogger:
+            with patch.multiple(
+                pbm,
+                Config=DEFAULT,
+                AWSInfo=DEFAULT,
+                set_log_info=DEFAULT,
+                set_log_debug=DEFAULT,
+                LambdaFuncGenerator=DEFAULT,
+                TerraformGenerator=DEFAULT,
+                TerraformRunner=DEFAULT,
+                parse_args=DEFAULT,
+                run_test=DEFAULT,
+                get_api_id=DEFAULT,
+            ) as mocks:
+                mocks['Config'].example_config.return_value = 'config-ex'
+                mocks['Config'].return_value.get.side_effect = se_get
+                mocks['LambdaFuncGenerator'
+                      ''].return_value.generate.return_value = 'myfunc'
+                main(mock_args)
+        assert mocks['Config'].mock_calls == [
+            call('cpath'),
+            call().get('api_gateway_method_settings')
+        ]
+        assert mocks['set_log_info'].mock_calls == []
+        assert mocks['set_log_debug'].mock_calls == [call()]
+        assert mocks['LambdaFuncGenerator'].mock_calls == [
+            call(mocks['Config'].return_value),
+            call().generate()
+        ]
+        assert mocks['TerraformGenerator'].mock_calls == [
+            call(mocks['Config'].return_value),
+            call().generate('myfunc')
+        ]
+        assert mocks['TerraformRunner'].mock_calls == [
+            call(mocks['Config'].return_value, 'terraform'),
+            call().apply(True)
+        ]
+        assert mocks['parse_args'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['get_api_id'].mock_calls == []
+        assert mocklogger.mock_calls == []
+
+    def test_main_apply(self):
+        """
+        test main function
+        """
+
+        def se_get(name):
+            return {'foo': 'bar'}
+
+        mock_args = Mock(verbose=0, action='apply', config='cpath',
                          stream_tf=False, tf_path='terraform')
         with patch('%s.logger' % pbm, autospec=True) as mocklogger:
             with patch.multiple(
@@ -202,26 +257,27 @@ class TestRunner(object):
                 get_api_id=DEFAULT,
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
+                mocks['Config'].get.side_effect = se_get
                 mocks['LambdaFuncGenerator'
                       ''].return_value.generate.return_value = 'myfunc'
                 main(mock_args)
-        assert mocks['Config'].mock_calls == [call('cpath')]
+        assert mocks['Config'].mock_calls == [
+            call('cpath'),
+            call().get('api_gateway_method_settings')
+        ]
         assert mocks['set_log_info'].mock_calls == []
-        assert mocks['set_log_debug'].mock_calls == [call()]
-        assert mocks['LambdaFuncGenerator'].mock_calls == [
-            call(mocks['Config'].return_value),
-            call().generate()
-        ]
-        assert mocks['TerraformGenerator'].mock_calls == [
-            call(mocks['Config'].return_value),
-            call().generate('myfunc')
-        ]
+        assert mocks['set_log_debug'].mock_calls == []
+        assert mocks['LambdaFuncGenerator'].mock_calls == []
+        assert mocks['TerraformGenerator'].mock_calls == []
         assert mocks['TerraformRunner'].mock_calls == [
             call(mocks['Config'].return_value, 'terraform'),
             call().apply(False)
         ]
         assert mocks['parse_args'].mock_calls == []
-        assert mocks['AWSInfo'].mock_calls == []
+        assert mocks['AWSInfo'].mock_calls == [
+            call(mocks['Config'].return_value),
+            call().set_method_settings()
+        ]
         assert mocks['get_api_id'].mock_calls == []
         assert mocklogger.mock_calls == []
 

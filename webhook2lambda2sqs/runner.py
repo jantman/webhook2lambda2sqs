@@ -359,6 +359,10 @@ def main(args=None):
     # run the terraform action
     if args.action == 'apply' or args.action == 'genapply':
         runner.apply(args.stream_tf)
+        # conditionally set API Gateway Method settings
+        if config.get('api_gateway_method_settings') is not None:
+            aws = AWSInfo(config)
+            aws.set_method_settings()
     elif args.action == 'plan':
         runner.plan(args.stream_tf)
     else:  # destroy

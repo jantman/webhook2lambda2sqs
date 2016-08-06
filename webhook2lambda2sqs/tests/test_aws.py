@@ -39,6 +39,7 @@ import sys
 import pytest
 from time import tzset
 import os
+from pprint import pformat
 
 from webhook2lambda2sqs.aws import AWSInfo
 from webhook2lambda2sqs.tests.support import exc_msg
@@ -605,3 +606,202 @@ class TestAWSInfo(object):
         assert res == 'https://apiid2.execute-api.myrname.amazonaws.com/' \
                       'mystagename/'
         assert mock_id.mock_calls == [call(self.cls)]
+
+    def test_set_method_settings(self):
+        self.conf['api_gateway_method_settings'] = {
+            'metricsEnabled': True,
+            'loggingLevel': 'INFO',
+            'dataTraceEnabled': False
+        }
+        stage = {
+            'methodSettings': {
+                '*/*': {
+                    'metricsEnabled': True,
+                    'loggingLevel': 'OFF',
+                    'throttlingBurstLimit': 2000,
+                    'throttlingRateLimit': 1000.0
+                }
+            }
+        }
+        with patch('%s.get_api_id' % pb, autospec=True) as mock_id:
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                with patch('%s.client' % pbm, autospec=True) as mock_client:
+                    with patch('%s._add_method_setting' % pb,
+                               autospec=True) as mock_add:
+                        mock_id.return_value = 'myapiid'
+                        mock_client.return_value.get_stage.return_value = stage
+                        self.cls.set_method_settings()
+        assert self.cls.config.mock_calls == [
+            call.get('api_gateway_method_settings')
+        ]
+        assert mock_id.mock_calls == [call(self.cls)]
+        assert mock_client.mock_calls == [
+            call('apigateway'),
+            call().get_stage(restApiId='myapiid', stageName='mystagename')
+        ]
+        assert mock_add.mock_calls == [
+            call(self.cls, mock_client.return_value, 'myapiid', 'mystagename',
+                 '/*/*/logging/dataTrace', 'dataTraceEnabled', False,
+                 'replace'),
+            call(self.cls, mock_client.return_value, 'myapiid', 'mystagename',
+                 '/*/*/logging/loglevel', 'loggingLevel', 'INFO', 'replace'),
+        ]
+        assert mock_logger.mock_calls == [
+            call.info('Setting API Gateway Stage methodSettings'),
+            call.debug('Connecting to AWS apigateway API'),
+            call.debug('Getting Stage configuration: api_id=%s stage_name=%s',
+                       'myapiid', 'mystagename'),
+            call.debug("Got stage config: \n%s", pformat(stage)),
+            call.debug('Adding new methodSetting "%s" value %s',
+                       'dataTraceEnabled', False),
+            call.debug('Updating methodSetting "%s" from %s to %s',
+                       'loggingLevel', 'OFF', 'INFO'),
+            call.debug('methodSetting "%s" is correct (%s)', 'metricsEnabled',
+                       True)
+        ]
+
+    def test_set_method_settings_initial(self):
+        self.conf['api_gateway_method_settings'] = {
+            'loggingLevel': 'INFO',
+            'dataTraceEnabled': False
+        }
+        stage = {
+            'methodSettings': {}
+        }
+        with patch('%s.get_api_id' % pb, autospec=True) as mock_id:
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                with patch('%s.client' % pbm, autospec=True) as mock_client:
+                    with patch('%s._add_method_setting' % pb,
+                               autospec=True) as mock_add:
+                        mock_id.return_value = 'myapiid'
+                        mock_client.return_value.get_stage.return_value = stage
+                        self.cls.set_method_settings()
+        assert self.cls.config.mock_calls == [
+            call.get('api_gateway_method_settings')
+        ]
+        assert mock_id.mock_calls == [call(self.cls)]
+        assert mock_client.mock_calls == [
+            call('apigateway'),
+            call().get_stage(restApiId='myapiid', stageName='mystagename')
+        ]
+        assert mock_add.mock_calls == [
+            call(self.cls, mock_client.return_value, 'myapiid', 'mystagename',
+                 '/*/*/logging/dataTrace', 'dataTraceEnabled', False,
+                 'replace'),
+            call(self.cls, mock_client.return_value, 'myapiid', 'mystagename',
+                 '/*/*/logging/loglevel', 'loggingLevel', 'INFO', 'replace'),
+        ]
+        assert mock_logger.mock_calls == [
+            call.info('Setting API Gateway Stage methodSettings'),
+            call.debug('Connecting to AWS apigateway API'),
+            call.debug('Getting Stage configuration: api_id=%s stage_name=%s',
+                       'myapiid', 'mystagename'),
+            call.debug("Got stage config: \n%s",
+                       pformat({'methodSettings': {}})),
+            call.debug('Adding new methodSetting "%s" value %s',
+                       'dataTraceEnabled', False),
+            call.debug('Adding new methodSetting "%s" value %s',
+                       'loggingLevel', 'INFO')
+        ]
+
+    def test_set_method_settings_no_config(self):
+        with patch('%s.get_api_id' % pb, autospec=True) as mock_id:
+            with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+                with patch('%s.client' % pbm, autospec=True) as mock_client:
+                    with patch('%s._add_method_setting' % pb,
+                               autospec=True) as mock_add:
+                        mock_id.return_value = 'myapiid'
+                        mock_client.return_value.get_stage.return_value = None
+                        self.cls.set_method_settings()
+        assert self.cls.config.mock_calls == [
+            call.get('api_gateway_method_settings')
+        ]
+        assert mock_id.mock_calls == []
+        assert mock_client.mock_calls == []
+        assert mock_add.mock_calls == []
+        assert mock_logger.mock_calls == [
+            call.debug('api_gateway_method_settings not set in config')
+        ]
+
+    def test_add_method_setting_success(self):
+        resp = {
+            'methodSettings': {
+                '*/*': {
+                    'foo': 'bar',
+                    'loggingLevel': 'INFO'
+                }
+            }
+        }
+        mock_conn = Mock()
+        mock_conn.update_stage.return_value = resp
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            self.cls._add_method_setting(
+                mock_conn,
+                'myapiid',
+                'mysname',
+                '/*/*/logging/logLevel',
+                'loggingLevel',
+                'INFO',
+                'add'
+            )
+        assert mock_conn.mock_calls == [
+            call.update_stage(
+                restApiId='myapiid',
+                stageName='mysname',
+                patchOperations=[
+                    {
+                        'op': 'add',
+                        'path': '/*/*/logging/logLevel',
+                        'value': 'INFO'
+                    }
+                ]
+            )
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('update_stage PATCH %s on %s; value=%s', 'add',
+                       '/*/*/logging/logLevel', 'INFO'),
+            call.info('Successfully updated methodSetting %s to %s',
+                      'loggingLevel', 'INFO')
+        ]
+
+    def test_add_method_setting_failure(self):
+        resp = {
+            'methodSettings': {
+                '*/*': {
+                    'foo': 'bar',
+                    'loggingLevel': 'ERROR'
+                }
+            }
+        }
+        mock_conn = Mock()
+        mock_conn.update_stage.return_value = resp
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            self.cls._add_method_setting(
+                mock_conn,
+                'myapiid',
+                'mysname',
+                '/*/*/logging/logLevel',
+                'loggingLevel',
+                'INFO',
+                'replace'
+            )
+        assert mock_conn.mock_calls == [
+            call.update_stage(
+                restApiId='myapiid',
+                stageName='mysname',
+                patchOperations=[
+                    {
+                        'op': 'replace',
+                        'path': '/*/*/logging/logLevel',
+                        'value': 'INFO'
+                    }
+                ]
+            )
+        ]
+        assert mock_logger.mock_calls == [
+            call.debug('update_stage PATCH %s on %s; value=%s', 'replace',
+                       '/*/*/logging/logLevel', 'INFO'),
+            call.error('methodSettings PATCH expected to update %s to %s,but '
+                       'instead found value as %s', 'loggingLevel', 'INFO',
+                       'ERROR')
+        ]
