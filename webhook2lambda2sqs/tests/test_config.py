@@ -138,6 +138,11 @@ class TestConfig(object):
         self.cls._config = deepcopy(self.cls._example)
         self.cls._validate_config()
 
+    def test_validate_ok_no_method_settings(self):
+        self.cls._config = deepcopy(self.cls._example)
+        del self.cls._config['api_gateway_method_settings']
+        self.cls._validate_config()
+
     def test_validate_bad_keys(self):
         self.cls._config = deepcopy(self.cls._example)
         self.cls._config['foo'] = 'bar'
@@ -190,3 +195,81 @@ class TestConfig(object):
                                               '%s' % ['CRITICAL', 'ERROR',
                                                       'WARNING', 'INFO',
                                                       'DEBUG', 'NOTSET']
+
+    def test_validate_method_settings_bad_keys(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['api_gateway_method_settings']['foo'] = 'bar'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'Invalid keys in "api_gateway_' \
+                                              'method_settings": %s' % ['foo']
+
+    def test_validate_method_settings_metrics_enabled(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['api_gateway_method_settings']['metricsEnabled'] = 'b'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'api_gateway_method_settings ' \
+                                              'metricsEnabled key must be ' \
+                                              'omitted or a boolean'
+
+    def test_validate_method_settings_logging_level(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['api_gateway_method_settings']['loggingLevel'] = 'bar'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'api_gateway_method_settings ' \
+                                              'loggingLevel must be omitted ' \
+                                              'or one of "OFF", "INFO" or ' \
+                                              '"ERROR"'
+
+    def test_validate_method_settings_data_trace_enabled(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['api_gateway_method_settings'][
+            'dataTraceEnabled'] = 'b'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'api_gateway_method_settings ' \
+                                              'dataTraceEnabled key must be ' \
+                                              'omitted or a boolean'
+
+    def test_validate_method_settings_throttling_burst_int(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['api_gateway_method_settings'][
+            'throttlingBurstLimit'] = 100
+        del self.cls._config['api_gateway_method_settings'][
+            'throttlingRateLimit']
+        self.cls._validate_config()
+
+    def test_validate_method_settings_throttling_burst_str(self):
+        self.cls._config = deepcopy(self.cls._example)
+        self.cls._config['api_gateway_method_settings'][
+            'throttlingBurstLimit'] = 'b'
+        del self.cls._config['api_gateway_method_settings'][
+            'throttlingRateLimit']
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'api_gateway_method_settings ' \
+                                              'throttlingBurstLimit key must ' \
+                                              'be omitted, null or an integer'
+
+    def test_validate_method_settings_throttling_rate_float(self):
+        self.cls._config = deepcopy(self.cls._example)
+        del self.cls._config['api_gateway_method_settings'][
+            'throttlingBurstLimit']
+        self.cls._config['api_gateway_method_settings'][
+            'throttlingRateLimit'] = 12.345
+        self.cls._validate_config()
+
+    def test_validate_method_settings_throttling_rate_str(self):
+        self.cls._config = deepcopy(self.cls._example)
+        del self.cls._config['api_gateway_method_settings'][
+            'throttlingBurstLimit']
+        self.cls._config['api_gateway_method_settings'][
+            'throttlingRateLimit'] = 'b'
+        with pytest.raises(InvalidConfigError) as excinfo:
+            self.cls._validate_config()
+        assert excinfo.value._orig_message == 'api_gateway_method_settings ' \
+                                              'throttlingRateLimit key must ' \
+                                              'be omitted, null or a Number ' \
+                                              '(float/double)'

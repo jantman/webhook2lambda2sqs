@@ -59,6 +59,13 @@ class Config(object):
     _allowed_methods = ['POST', 'GET']
 
     _example = {
+        'api_gateway_method_settings': {
+            'metricsEnabled': False,
+            'loggingLevel': 'OFF',
+            'dataTraceEnabled': False,
+            'throttlingBurstLimit': None,
+            'throttlingRateLimit': None
+        },
         'deployment_stage_name': 'something',
         'endpoints': {
             'some_resource_path': {
@@ -83,6 +90,26 @@ class Config(object):
     _example_docs = """
     Configuration description:
 
+    api_gateway_method_settings - (optional) Dictionary of API Gateway Method
+      settings to enable. See %s for upstream documentation. Due to a limitation
+      in Terraform (https://github.com/hashicorp/terraform/issues/6612), these
+      settings are applied by this program via the AWS API after Terraform has
+      run; if you use this program to generate Terraform configurations and
+      apply them yourself, these settings will have no effect. The following
+      keys and values are supported:
+
+      - 'metricsEnabled' - (boolean, default False) whether or not to enable
+        CloudWatch metrics for the API.
+      - 'loggingLevel' - (string, default "OFF") logging level to use for
+        pushing API Gateway logs to CloudWatch Logs. Valid values are "OFF",
+        "ERROR" or "INFO".
+      - 'dataTraceEnabled' - (boolean, default False) whether to enable data
+        trace logging to CloudWatch Logs for the API Gateway.
+      - 'throttlingBurstLimit' - (integer, default None) API Gateway throttling
+        burst limit. Omit to not set this option.
+      - 'throttlingRateLimit' - (double, default None) API Gateway throttling
+        rate limit. Omit to not set this option.
+
     deployment_stage_name - (optional) String used as the name for the API
       Gateway Deployment Stage, which will be the beginning component of the
       URL path for the API Gateway
@@ -106,7 +133,8 @@ class Config(object):
       Dict keys:
       - 'backend' - name of the terraform remote state backend to configure
       - 'config' - dict of backend configuration option name/value pairs
-    """
+    """ % '<https://docs.aws.amazon.com/apigateway/api-reference/resource/' \
+          'stage/#methodSettings>'
 
     def __init__(self, path):
         """
@@ -153,6 +181,57 @@ class Config(object):
         if ('logging_level' in self._config and
                 self._config['logging_level'] not in levels):
             raise InvalidConfigError('logging_level must be one of %s' % levels)
+        """
+        'api_gateway_method_settings': {
+            'throttlingBurstLimit': None,
+            'throttlingRateLimit': None
+        },
+        """
+        if 'api_gateway_method_settings' not in self._config:
+            return
+        ms = self._config['api_gateway_method_settings']
+        bad_keys = []
+        for k in ms.keys():
+            if k not in self._example['api_gateway_method_settings'].keys():
+                bad_keys.append(k)
+        if len(bad_keys) > 0:
+            raise InvalidConfigError(
+                'Invalid keys in "api_gateway_method_settings": %s' % bad_keys)
+        if 'metricsEnabled' in ms and ms['metricsEnabled'] not in [True, False]:
+            raise InvalidConfigError(
+                'api_gateway_method_settings metricsEnabled key must be omitted'
+                ' or a boolean')
+        if ('loggingLevel' in ms and
+                ms['loggingLevel'] not in ['OFF', 'INFO', 'ERROR']):
+            raise InvalidConfigError(
+                'api_gateway_method_settings loggingLevel must be omitted or '
+                'one of "OFF", "INFO" or "ERROR"'
+            )
+        if ('metricsEnabled' in ms and
+                ms['dataTraceEnabled'] not in [True, False]):
+            raise InvalidConfigError(
+                'api_gateway_method_settings dataTraceEnabled key must be '
+                'omitted or a boolean')
+        if ('throttlingBurstLimit' in ms and
+                ms['throttlingBurstLimit'] is not None):
+            try:
+                assert ms['throttlingBurstLimit'] == int(
+                    ms['throttlingBurstLimit'])
+            except (AssertionError, ValueError, TypeError):
+                raise InvalidConfigError(
+                    'api_gateway_method_settings throttlingBurstLimit key must '
+                    'be omitted, null or an integer'
+                )
+        if ('throttlingRateLimit' in ms and
+                ms['throttlingRateLimit'] is not None):
+            try:
+                assert ms['throttlingRateLimit'] == float(
+                    ms['throttlingRateLimit'])
+            except (AssertionError, ValueError, TypeError):
+                raise InvalidConfigError(
+                    'api_gateway_method_settings throttlingRateLimit key must '
+                    'be omitted, null or a Number (float/double)'
+                )
 
     def get(self, key):
         """

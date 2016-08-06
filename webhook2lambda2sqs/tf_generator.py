@@ -342,10 +342,14 @@ class TerraformGenerator(object):
         }
         # finally, the deployment
         """
-        @NOTE that currently, Terraform can't enable metrics collection,
-        request logging or rate limiting on API Gateway services. See
-        <https://github.com/hashicorp/terraform/issues/7754>
-        for details.
+        @NOTE Currently, Terraform can't enable metrics collection,
+        request logging or rate limiting on API Gateway services.
+
+        @TODO update this when
+        <https://github.com/hashicorp/terraform/issues/6612> is fixed.
+
+        @see https://github.com/jantman/webhook2lambda2sqs/issues/7
+        @see https://github.com/jantman/webhook2lambda2sqs/issues/16
         """
         self.tf_conf['output']['base_url'] = {
             'value': 'https://${aws_api_gateway_rest_api.rest_api.id}.'
