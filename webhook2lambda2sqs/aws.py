@@ -260,7 +260,7 @@ class AWSInfo(object):
         conn = client('apigateway')
         api_id = self.get_api_id()
         return 'https://%s.execute-api.%s.amazonaws.com/%s/' % (
-                api_id, conn._client_config.region_name, 'webhook2lambda2sqs'
+                api_id, conn._client_config.region_name, self.config.stage_name
             )
 
     def get_api_id(self):

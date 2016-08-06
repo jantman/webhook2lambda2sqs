@@ -72,6 +72,7 @@ class TestTerraformGenerator(object):
         config = Mock()
         config.get.side_effect = se_get
         type(config).func_name = 'myFuncName'
+        type(config).stage_name = 'mystagename'
         self.cls = TerraformGenerator(config)
         self.cls.aws_region = 'myregion'
         self.cls.aws_account_id = '1234'
@@ -399,7 +400,7 @@ class TestTerraformGenerator(object):
         expected_conf['output']['base_url'] = {
             'value': 'https://${aws_api_gateway_rest_api.rest_api.id}.'
                      'execute-api.%s.amazonaws.com/%s/' % ('myregion',
-                                                           'webhook2lambda2sqs')
+                                                           'mystagename')
         }
         with patch('%s._generate_endpoint' % pb, autospec=True) as mock_ge:
             with patch('%s.description' % pb, new_callable=PropertyMock) as m_d:
@@ -442,7 +443,7 @@ class TestTerraformGenerator(object):
                     'baz.blarg'
                 ],
                 'description': 'mydesc',
-                'stage_name': 'webhook2lambda2sqs'
+                'stage_name': 'mystagename'
             }
         }
         expected_conf['output'] = {

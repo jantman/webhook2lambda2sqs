@@ -340,8 +340,6 @@ class TerraformGenerator(object):
             'value': '${aws_api_gateway_rest_api.rest_api.id}'
         }
         # finally, the deployment
-        # note stage_name is also hard-coded in AWSInfo.get_api_base_url
-        stage_name = 'webhook2lambda2sqs'
         """
         @NOTE that currently, Terraform can't enable metrics collection,
         request logging or rate limiting on API Gateway services. See
@@ -350,8 +348,8 @@ class TerraformGenerator(object):
         """
         self.tf_conf['output']['base_url'] = {
             'value': 'https://${aws_api_gateway_rest_api.rest_api.id}.'
-                     'execute-api.%s.amazonaws.com/%s/' % (self.aws_region,
-                                                           stage_name)
+                     'execute-api.%s.amazonaws.com/%s/' % (
+                         self.aws_region, self.config.stage_name)
         }
         # generate the endpoint configs
         endpoints = self.config.get('endpoints')
@@ -363,8 +361,6 @@ class TerraformGenerator(object):
         Generate the API Gateway Deployment/Stage, and add to self.tf_conf
         """
         # finally, the deployment
-        # note stage_name is also hard-coded in AWSInfo.get_api_base_url
-        stage_name = 'webhook2lambda2sqs'
         # this resource MUST come last
         dep_on = []
         for rtype in sorted(self.tf_conf['resource'].keys()):
@@ -373,7 +369,7 @@ class TerraformGenerator(object):
         self.tf_conf['resource']['aws_api_gateway_deployment']['depl'] = {
             'rest_api_id': '${aws_api_gateway_rest_api.rest_api.id}',
             'description': self.description,
-            'stage_name': stage_name,
+            'stage_name': self.config.stage_name,
             'depends_on': dep_on
         }
         self.tf_conf['output']['deployment_id'] = {

@@ -108,6 +108,10 @@ class TestConfig(object):
         self.cls._config = {}
         assert self.cls.func_name == 'webhook2lambda2sqs'
 
+    def test_func_name_suffix(self):
+        self.cls._config = {'name_suffix': 'foo'}
+        assert self.cls.func_name == 'webhook2lambda2sqsfoo'
+
     def test_stage_name(self):
         self.cls._config = {}
         assert self.cls.stage_name == 'webhook2lambda2sqs'

@@ -69,6 +69,7 @@ class TestAWSInfo(object):
         config = Mock()
         config.get.side_effect = se_get
         type(config).func_name = 'myfname'
+        type(config).stage_name = 'mystagename'
         self.cls = AWSInfo(config)
 
     def test_init(self):
@@ -602,5 +603,5 @@ class TestAWSInfo(object):
                 mock_id.return_value = 'apiid2'
                 res = self.cls.get_api_base_url()
         assert res == 'https://apiid2.execute-api.myrname.amazonaws.com/' \
-                      'webhook2lambda2sqs/'
+                      'mystagename/'
         assert mock_id.mock_calls == [call(self.cls)]
