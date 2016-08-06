@@ -39,10 +39,19 @@ import pytest
 import requests
 import boto3
 import json
+from pprint import pformat
 
 from webhook2lambda2sqs.utils import pretty_json
 
 acceptance_config = {
+    'api_gateway_method_settings': {
+        'metricsEnabled': True,
+        'loggingLevel': 'INFO',
+        'dataTraceEnabled': True,
+        'throttlingBurstLimit': 123,
+        'throttlingRateLimit': 100.0
+    },
+    'deployment_stage_name': 'mystage',
     'endpoints': {
         'goodQueue': {
             'method': 'POST',
@@ -65,7 +74,7 @@ acceptance_config = {
             'queues': ['w2l2sitest2', 'f3f0823u8uf']
         }
     },
-    'deployment_stage_name': 'mystage',
+    'logging_level': 'DEBUG',
     'name_suffix': 'integrtest'
 }
 
@@ -133,8 +142,20 @@ class TestAccpetance(object):
         """dirty hack to clean up test output"""
         assert 0 == 0
 
+    def test_method_settings(self, acceptance_fixture):
+        api_id, base_url, run_id = acceptance_fixture
+        conn = boto3.client('apigateway')
+        stage = conn.get_stage(restApiId=api_id, stageName='mystage')
+        assert 'methodSettings' in stage, 'Stage: %s' % pformat(stage)
+        assert '*/*' in stage['methodSettings'], 'Stage: %s' % pformat(stage)
+        settings = stage['methodSettings']['*/*']
+        conf = acceptance_config['api_gateway_method_settings']
+        for k in conf:
+            assert k in settings, 'Stage: %s' % pformat(stage)
+            assert settings[k] == conf[k], 'Stage: %s' % pformat(stage)
+
     def test_post_queue_ok(self, acceptance_fixture):
-        base_url, run_id = acceptance_fixture
+        api_id, base_url, run_id = acceptance_fixture
         url = base_url + 'goodQueue/'
         meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
                                   sys._getframe().f_code.co_name)
@@ -153,7 +174,7 @@ class TestAccpetance(object):
         assert msg == resp['SQSMessageIds'][0]
 
     def test_get_queue_ok(self, acceptance_fixture):
-        base_url, run_id = acceptance_fixture
+        api_id, base_url, run_id = acceptance_fixture
         url = base_url + 'goodGetQueue/'
         meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
                                   sys._getframe().f_code.co_name)
@@ -172,7 +193,7 @@ class TestAccpetance(object):
         assert msg == resp['SQSMessageIds'][0]
 
     def test_get_bad_queue(self, acceptance_fixture):
-        base_url, run_id = acceptance_fixture
+        api_id, base_url, run_id = acceptance_fixture
         url = base_url + 'badQueue/'
         meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
                                   sys._getframe().f_code.co_name)
@@ -190,7 +211,7 @@ class TestAccpetance(object):
         assert self.get_message_id('w2l2sitest2', run_id, meth_name) is None
 
     def test_post_bad_queue(self, acceptance_fixture):
-        base_url, run_id = acceptance_fixture
+        api_id, base_url, run_id = acceptance_fixture
         url = base_url + 'badQueuePost/'
         meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
                                   sys._getframe().f_code.co_name)
@@ -208,7 +229,7 @@ class TestAccpetance(object):
         assert self.get_message_id('w2l2sitest2', run_id, meth_name) is None
 
     def test_post_one_good_one_bad(self, acceptance_fixture):
-        base_url, run_id = acceptance_fixture
+        api_id, base_url, run_id = acceptance_fixture
         url = base_url + 'oneGoodQueueOneBad/'
         meth_name = '%s.%s.%s' % (__name__, self.__class__.__name__,
                                   sys._getframe().f_code.co_name)

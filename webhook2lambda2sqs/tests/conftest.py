@@ -101,7 +101,7 @@ def acceptance_fixture(request):
 
     sys.stderr.write("\tstarting up acceptance environment...\n")
     try:
-        base_url = set_up_acceptance(dir_path)
+        api_id, base_url = set_up_acceptance(dir_path)
     except Exception as ex:
         tear_down_acceptance(dir_path)
         raise ex
@@ -113,7 +113,7 @@ def acceptance_fixture(request):
     hit_all_endpoints(base_url)
     sys.stderr.write("Sleeping 10s...\n")
     time.sleep(10)
-    return base_url, test_run_identifier
+    return api_id, base_url, test_run_identifier
 
 
 def hit_all_endpoints(base_url):
@@ -162,8 +162,8 @@ def set_up_acceptance(dir_path):
                 config='config.json')
     runner_main(args=args)
     # get base url
-    base_url = get_base_url(dir_path)
-    return base_url
+    api_id, base_url = get_base_url(dir_path)
+    return api_id, base_url
 
 
 def get_base_url(dir_path):
@@ -174,7 +174,7 @@ def get_base_url(dir_path):
     conf = Config(os.path.join(dir_path, 'config.json'))
     tf_runner = TerraformRunner(conf, 'terraform')
     outs = tf_runner._get_outputs()
-    return outs['base_url']
+    return outs['rest_api_id'], outs['base_url']
 
 
 def delete_queues(conn=None):
