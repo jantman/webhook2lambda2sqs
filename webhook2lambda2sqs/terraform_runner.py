@@ -77,17 +77,19 @@ class TerraformRunner(object):
         if res is None:
             logger.error('Unable to determine terraform version; will not '
                          'validate config. Note that this may cause problems '
-                         'when using older Terraform versions.')
+                         'when using older Terraform versions. This program '
+                         'requires Terraform >= 0.6.16.')
             return
         self.tf_version = (
             int(res.group(1)), int(res.group(2)), int(res.group(3))
         )
         logger.debug('Terraform version: %s', self.tf_version)
-        if self.tf_version < (0, 6, 12):
-            logger.warning('Terraform config validation requires terraform '
-                           '>= 0.6.12, but you are running %s. Config '
-                           'validation will not be performed', self.tf_version)
-            return
+        if self.tf_version < (0, 6, 16):
+            raise Exception('This program requires Terraform >= 0.6.16, as '
+                            'that version introduces a bug fix for working '
+                            'with api_gateway_integration_response resources; '
+                            'see: https://github.com/hashicorp/terraform/pull'
+                            '/5893')
         try:
             self._run_tf('validate', ['.'])
         except:

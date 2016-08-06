@@ -467,7 +467,8 @@ class TestTerraformRunner(object):
         assert mock_logger.mock_calls == [
             call.error('Unable to determine terraform version; will not '
                        'validate config. Note that this may cause problems '
-                       'when using older Terraform versions.')
+                       'when using older Terraform versions. This program '
+                       'requires Terraform >= 0.6.16.')
         ]
 
     def test_validate_old_version(self):
@@ -482,16 +483,17 @@ class TestTerraformRunner(object):
         with patch('%s._run_tf' % pb, autospec=True) as mock_run:
             mock_run.side_effect = se_run
             with patch('%s.logger' % pbm) as mock_logger:
-                cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+                with pytest.raises(Exception) as excinfo:
+                    TerraformRunner(self.mock_config(), 'terraform-bin')
         assert mock_logger.mock_calls == [
-            call.debug('Terraform version: %s', (0, 6, 3)),
-            call.warning('Terraform config validation requires terraform '
-                         '>= 0.6.12, but you are running %s. Config '
-                         'validation will not be performed', (0, 6, 3))
+            call.debug('Terraform version: %s', (0, 6, 3))
         ]
-        assert mock_run.mock_calls == [
-            call(cls, 'version')
-        ]
+        assert exc_msg(excinfo.value) == 'This program requires Terraform >= ' \
+                                         '0.6.16, as that version introduces ' \
+                                         'a bug fix for working with api_' \
+                                         'gateway_integration_response ' \
+                                         'resources; see: https://github.com/' \
+                                         'hashicorp/terraform/pull/5893'
 
     def test_validate_fail(self):
         def se_run(*args, **kwargs):
