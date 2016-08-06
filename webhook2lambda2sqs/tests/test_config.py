@@ -120,6 +120,14 @@ class TestConfig(object):
         self.cls._config = {'deployment_stage_name': 'foo'}
         assert self.cls.stage_name == 'foo'
 
+    def test_logging_level(self):
+        self.cls._config = {}
+        assert self.cls.logging_level == 'INFO'
+
+    def test_logging_level_custom(self):
+        self.cls._config = {'logging_level': 'CRITICAL'}
+        assert self.cls.logging_level == 'CRITICAL'
+
     def test_get(self):
         self.cls._config = {'foo': 'bar', 'baz': {'blam': 'blarg'}}
         assert self.cls.get('foo') == 'bar'

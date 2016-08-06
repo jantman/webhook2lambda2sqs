@@ -64,6 +64,7 @@ class TestLambdaFuncGenerator(object):
         config = Mock()
         config.get.side_effect = se_get
         type(config).func_name = 'webhook2lambda2sqs'
+        type(config).logging_level = 'WARN'
         self.cls = LambdaFuncGenerator(config)
 
     def test_init(self):
@@ -118,11 +119,13 @@ class TestLambdaFuncGenerator(object):
 
     def test_generate(self):
         src = "import foo\n\n"
+        src += "logger.setLevel(logging.INFO)\n\n"
         src += "endpoints = {}\n"
         src += "\ndef foo():\n"
         src += "    return 1\n"
         expected = "mydocstring\n"
         expected += "import foo\n\n"
+        expected += "logger.setLevel(logging.WARN)\n\n"
         expected += "endpoints = myconfig\n"
         expected += "\n\ndef foo():\n"
         expected += "    return 1\n"

@@ -122,5 +122,8 @@ class LambdaFuncGenerator(object):
         s += self._get_source().replace(
             'endpoints = {}',
             'endpoints = ' + self._config_src
+        ).replace(
+            'logger.setLevel(logging.INFO)',
+            'logger.setLevel(logging.%s)' % self.config.logging_level
         )
         return s

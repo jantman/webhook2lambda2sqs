@@ -59,9 +59,7 @@ class Config(object):
     _allowed_methods = ['POST', 'GET']
 
     _example = {
-        'name_suffix': 'something',
         'deployment_stage_name': 'something',
-        'logging_level': 'INFO',
         'endpoints': {
             'some_resource_path': {
                 'method': 'POST',
@@ -72,6 +70,8 @@ class Config(object):
                 'queues': ['queueName2', 'queueName3']
             }
         },
+        'logging_level': 'INFO',
+        'name_suffix': 'something',
         'terraform_remote_state': {
             'backend': 'backend_name',
             'config': {
@@ -204,6 +204,20 @@ class Config(object):
         if name is None:
             name = 'webhook2lambda2sqs'
         return name
+
+    @property
+    def logging_level(self):
+        """
+        Return the string name of the logging module level constant to set
+        in the lambda function.
+
+        :return: logging level constant name
+        :rtype: str
+        """
+        level = self.get('logging_level')
+        if level is None:
+            level = 'INFO'
+        return level
 
     @staticmethod
     def example_config():

@@ -11,7 +11,7 @@ import boto3
 import json
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # suppress boto3 internal logging below WARNING level
 boto3_log = logging.getLogger("boto3")
