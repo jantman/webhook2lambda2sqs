@@ -39,7 +39,6 @@ import pytest
 import requests
 import boto3
 import json
-import time
 
 from webhook2lambda2sqs.utils import pretty_json
 
@@ -104,10 +103,8 @@ class TestAccpetance(object):
                         QueueUrl=qurl, ReceiptHandle=m['ReceiptHandle'])
                 continue
             # no messages found
-            #print('Queue %s - got no messages; sleeping 10s' % queuename)
             print('Queue %s - got no messages' % queuename)
             empty_polls += 1
-            #time.sleep(10)
         print("Queue %s - %d messages:" % (queuename, len(all_msgs)))
         for m in all_msgs:
             j = json.loads(m['Body'])
@@ -117,8 +114,9 @@ class TestAccpetance(object):
                     queuename, m['MessageId'], pretty_json(j)
                 ))
                 continue
-            print("=> Queue %s: %s - method=%s run_id=%s" % (queuename,
-                m['MessageId'], j['data']['method'], j['data']['run_id']))
+            print("=> Queue %s: %s - method=%s run_id=%s" % (
+                queuename, m['MessageId'],
+                j['data']['method'], j['data']['run_id']))
             if (j['data']['method'] == method_name and
                     j['data']['run_id'] == run_id):
                 return m['MessageId']
