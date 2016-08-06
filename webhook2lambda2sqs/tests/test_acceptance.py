@@ -65,6 +65,7 @@ acceptance_config = {
             'queues': ['w2l2sitest2', 'f3f0823u8uf']
         }
     },
+    'deployment_stage_name': 'mystage',
     'name_suffix': 'integrtest'
 }
 
