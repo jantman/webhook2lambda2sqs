@@ -307,7 +307,9 @@ linkcheck_ignore = [
     r'https?://.*readthedocs\.org.*',
     r'https?://pypi\.python\.org/pypi/webhook2lambda2sqs.*',
     r'https?://crate\.io.*',
-    r'https?://testpypi\.python\.org.*'
+    r'https?://testpypi\.python\.org.*',
+    # line continuation problem:
+    r'https?://docs\.aws\.amazon\.com/apigateway/.*'
 ]
 
 # exclude module docstrings - see http://stackoverflow.com/a/18031024/211734

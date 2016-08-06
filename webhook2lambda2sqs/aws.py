@@ -49,8 +49,6 @@ logger = logging.getLogger(__name__)
 class AWSInfo(object):
 
     # API Gateway Stage methodSetting paths
-    # see <https://docs.aws.amazon.com/apigateway/api-reference/resource/
-    # stage/#methodSettings>
     # These have '%s' as a placeholder for the method_setting_key
     _method_setting_paths = {
         'metricsEnabled': '/%s/metrics/enabled',
@@ -351,8 +349,8 @@ class AWSInfo(object):
         :type api_id: str
         :param stage_name: stage name
         :type stage_name: str
-        :param path: path to patch (see https://docs.aws.amazon.com/apigateway
-        /api-reference/resource/stage/#methodSettings)
+        :param path: path to patch (see https://docs.aws.amazon.com/apigateway/\
+api-reference/resource/stage/#methodSettings)
         :type path: str
         :param key: the dictionary key this should update
         :type key: str
