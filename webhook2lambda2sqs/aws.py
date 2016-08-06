@@ -38,7 +38,9 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import logging
 from boto3 import client
 from datetime import datetime
-from pprint import pprint
+import json
+
+from webhook2lambda2sqs.utils import pretty_json
 
 logger = logging.getLogger(__name__)
 
@@ -167,23 +169,50 @@ class AWSInfo(object):
         logger.debug("Queue '%s' url: %s", name, url)
         logger.warning('Receiving %d messages from queue\'%s\'; this may take '
                        'up to 20 seconds.', count, name)
-        msgs = conn.receive_message(
-            QueueUrl=url,
-            AttributeNames=['All'],
-            MessageAttributeNames=['All'],
-            MaxNumberOfMessages=count,
-            WaitTimeSeconds=20
-        )
-        if 'Messages' not in msgs:
-            logger.debug('received no messages')
+        if not delete:
+            logger.warning("WARNING: Displayed messages will be invisible in "
+                           "queue for 60 seconds!")
+        seen_ids = []
+        all_msgs = []
+        empty_polls = 0
+        # continue getting messages until we get 2 empty polls in a row
+        while empty_polls < 2 and len(all_msgs) < count:
+            logger.debug('Polling queue %s for messages (empty_polls=%d)',
+                         name, empty_polls)
+            msgs = conn.receive_message(
+                QueueUrl=url,
+                AttributeNames=['All'],
+                MessageAttributeNames=['All'],
+                MaxNumberOfMessages=count,
+                VisibilityTimeout=60,
+                WaitTimeSeconds=20
+            )
+            if 'Messages' in msgs and len(msgs['Messages']) > 0:
+                empty_polls = 0
+                logger.debug("Queue %s - got %d messages", name,
+                             len(msgs['Messages']))
+                for m in msgs['Messages']:
+                    if m['MessageId'] in seen_ids:
+                        continue
+                    seen_ids.append(m['MessageId'])
+                    all_msgs.append(m)
+                continue
+            # no messages found
+            logger.debug('Queue %s - got no messages', name)
+            empty_polls += 1
+        logger.debug('received %d messages', len(all_msgs))
+        if len(all_msgs) == 0:
             print('=> Queue \'%s\' appears empty.' % name)
             return
-        logger.debug('received %d messages', len(msgs['Messages']))
-        print('=> Queue \'%s\' (%s)' % (name, url))
-        if len(msgs['Messages']) > count:
-            msgs['Messages'] = msgs['Messages'][:count]
-        for m in msgs['Messages']:
-            pprint(m)
+        print("=> Queue '%s' (%s)" % (name, url))
+        if len(all_msgs) > count:
+            all_msgs = all_msgs[:count]
+        for m in all_msgs:
+            try:
+                m['Body'] = json.loads(m['Body'])
+            except Exception:
+                pass
+            print(pretty_json(m))
             if delete:
                 self._delete_msg(conn, url, m['ReceiptHandle'])
 
@@ -215,9 +244,6 @@ class AWSInfo(object):
         :param delete: whether or not to delete messages after receipt
         :type delete: bool
         """
-        if count > 10:
-            raise Exception('Error: currently this script only supports '
-                            'receiving 10 or fewer messages per queue.')
         logger.debug('Connecting to SQS API')
         conn = client('sqs')
         if name is not None:

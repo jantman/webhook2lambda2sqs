@@ -37,12 +37,12 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import sys
 import pytest
-from pprint import pformat
 from time import tzset
 import os
 
 from webhook2lambda2sqs.aws import AWSInfo
 from webhook2lambda2sqs.tests.support import exc_msg
+from webhook2lambda2sqs.utils import pretty_json
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -303,33 +303,36 @@ class TestAWSInfo(object):
             call()
         ]
 
-    def test_show_queue_too_many(self):
-        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
-            with patch('%s.client' % pbm, autospec=True) as mock_sqs:
-                with patch('%s._show_one_queue' % pb,
-                           autospec=True) as mock_show:
-                    with patch('%s._all_queue_names' % pb,
-                               new_callable=PropertyMock, create=True
-                               ) as mock_aqn:
-                        mock_aqn.return_value = ['foo', 'bar', 'baz']
-                        with pytest.raises(Exception) as excinfo:
-                            self.cls.show_queue(count=12, delete=True)
-        assert exc_msg(excinfo.value) == 'Error: currently this script only ' \
-                                         'supports receiving 10 or fewer ' \
-                                         'messages per queue.'
-        assert mock_sqs.mock_calls == []
-        assert mock_show.mock_calls == []
-        assert mock_logger.mock_calls == []
-        assert mock_aqn.mock_calls == []
-
     def test_show_one_queue_no_delete(self, capsys):
         conn = Mock()
-        conn.receive_message.return_value = {
-            'Messages': [
-                {'foo': 'bar', 'ReceiptHandle': 'rh1'},
-                {'baz': 'blam', 'ReceiptHandle': 'rh1'},
-            ]
-        }
+        responses = [
+            {
+                'Messages': [
+                    {
+                        'foo': 'bar',
+                        'ReceiptHandle': 'rh1',
+                        'MessageId': 'msg1'
+                    }
+                ]
+            },
+            {
+                'Messages': [
+                    {
+                        'foo': 'bar',
+                        'ReceiptHandle': 'rh1',
+                        'MessageId': 'msg1'
+                    },
+                    {
+                        'baz': 'blam',
+                        'ReceiptHandle': 'rh2',
+                        'MessageId': 'msg2'
+                    }
+                ]
+            },
+            {},
+            {}
+        ]
+        conn.receive_message.side_effect = responses
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._url_for_queue' % pb, autospec=True) as mock_url:
                 mock_url.return_value = 'myurl'
@@ -338,8 +341,8 @@ class TestAWSInfo(object):
         out, err = capsys.readouterr()
         assert err == ''
         expected_out = "=> Queue 'foo' (myurl)\n"
-        expected_out += pformat({'foo': 'bar', 'ReceiptHandle': 'rh1'}) + "\n"
-        expected_out += pformat({'baz': 'blam', 'ReceiptHandle': 'rh1'}) + "\n"
+        expected_out += pretty_json(responses[0]['Messages'][0]) + "\n"
+        expected_out += pretty_json(responses[1]['Messages'][1]) + "\n"
         assert out == expected_out
         assert mock_del.mock_calls == []
         assert conn.mock_calls == [
@@ -348,6 +351,31 @@ class TestAWSInfo(object):
                 AttributeNames=['All'],
                 MessageAttributeNames=['All'],
                 MaxNumberOfMessages=3,
+                VisibilityTimeout=60,
+                WaitTimeSeconds=20
+            ),
+            call.receive_message(
+                QueueUrl='myurl',
+                AttributeNames=['All'],
+                MessageAttributeNames=['All'],
+                MaxNumberOfMessages=3,
+                VisibilityTimeout=60,
+                WaitTimeSeconds=20
+            ),
+            call.receive_message(
+                QueueUrl='myurl',
+                AttributeNames=['All'],
+                MessageAttributeNames=['All'],
+                MaxNumberOfMessages=3,
+                VisibilityTimeout=60,
+                WaitTimeSeconds=20
+            ),
+            call.receive_message(
+                QueueUrl='myurl',
+                AttributeNames=['All'],
+                MessageAttributeNames=['All'],
+                MaxNumberOfMessages=3,
+                VisibilityTimeout=60,
                 WaitTimeSeconds=20
             )
         ]
@@ -358,17 +386,44 @@ class TestAWSInfo(object):
             call.debug("Queue '%s' url: %s", 'foo', 'myurl'),
             call.warning("Receiving %d messages from queue'%s'; this may "
                          "take up to 20 seconds.", 3, 'foo'),
+            call.warning("WARNING: Displayed messages will be invisible in "
+                         "queue for 60 seconds!"),
+            call.debug('Polling queue %s for messages (empty_polls=%d)',
+                       'foo', 0),
+            call.debug('Queue %s - got %d messages', 'foo', 1),
+            call.debug('Polling queue %s for messages (empty_polls=%d)',
+                       'foo', 0),
+            call.debug('Queue %s - got %d messages', 'foo', 2),
+            call.debug('Polling queue %s for messages (empty_polls=%d)',
+                       'foo', 0),
+            call.debug('Queue %s - got no messages', 'foo'),
+            call.debug('Polling queue %s for messages (empty_polls=%d)',
+                       'foo', 1),
+            call.debug('Queue %s - got no messages', 'foo'),
             call.debug('received %d messages', 2)
         ]
 
     def test_show_one_queue_too_many(self, capsys):
         conn = Mock()
-        conn.receive_message.return_value = {
-            'Messages': [
-                {'foo': 'bar', 'ReceiptHandle': 'rh1'},
-                {'baz': 'blam', 'ReceiptHandle': 'rh1'},
-            ]
-        }
+        responses = [
+            {
+                'Messages': [
+                    {
+                        'foo': 'bar',
+                        'ReceiptHandle': 'rh1',
+                        'MessageId': 'msg1'
+                    },
+                    {
+                        'baz': 'blam',
+                        'ReceiptHandle': 'rh2',
+                        'MessageId': 'msg2'
+                    },
+                ]
+            },
+            {},
+            {}
+        ]
+        conn.receive_message.side_effect = responses
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._url_for_queue' % pb, autospec=True) as mock_url:
                 mock_url.return_value = 'myurl'
@@ -377,7 +432,7 @@ class TestAWSInfo(object):
         out, err = capsys.readouterr()
         assert err == ''
         expected_out = "=> Queue 'foo' (myurl)\n"
-        expected_out += pformat({'foo': 'bar', 'ReceiptHandle': 'rh1'}) + "\n"
+        expected_out += pretty_json(responses[0]['Messages'][0]) + "\n"
         assert out == expected_out
         assert mock_del.mock_calls == [
             call(self.cls, conn, 'myurl', 'rh1')
@@ -388,6 +443,7 @@ class TestAWSInfo(object):
                 AttributeNames=['All'],
                 MessageAttributeNames=['All'],
                 MaxNumberOfMessages=1,
+                VisibilityTimeout=60,
                 WaitTimeSeconds=20
             )
         ]
@@ -398,6 +454,9 @@ class TestAWSInfo(object):
             call.debug("Queue '%s' url: %s", 'foo', 'myurl'),
             call.warning("Receiving %d messages from queue'%s'; this may "
                          "take up to 20 seconds.", 1, 'foo'),
+            call.debug('Polling queue %s for messages (empty_polls=%d)',
+                       'foo', 0),
+            call.debug('Queue %s - got %d messages', 'foo', 2),
             call.debug('received %d messages', 2)
         ]
 
@@ -420,6 +479,15 @@ class TestAWSInfo(object):
                 AttributeNames=['All'],
                 MessageAttributeNames=['All'],
                 MaxNumberOfMessages=1,
+                VisibilityTimeout=60,
+                WaitTimeSeconds=20
+            ),
+            call.receive_message(
+                QueueUrl='myurl',
+                AttributeNames=['All'],
+                MessageAttributeNames=['All'],
+                MaxNumberOfMessages=1,
+                VisibilityTimeout=60,
                 WaitTimeSeconds=20
             )
         ]
@@ -430,7 +498,13 @@ class TestAWSInfo(object):
             call.debug("Queue '%s' url: %s", 'foo', 'myurl'),
             call.warning("Receiving %d messages from queue'%s'; this may "
                          "take up to 20 seconds.", 1, 'foo'),
-            call.debug('received no messages')
+            call.debug('Polling queue %s for messages (empty_polls=%d)',
+                       'foo', 0),
+            call.debug('Queue %s - got no messages', 'foo'),
+            call.debug('Polling queue %s for messages (empty_polls=%d)',
+                       'foo', 1),
+            call.debug('Queue %s - got no messages', 'foo'),
+            call.debug('received %d messages', 0)
         ]
 
     def test_delete(self):
