@@ -91,6 +91,7 @@ class TestTerraformGenerator(object):
                 'aws_iam_role': {},
                 'aws_iam_role_policy': {},
                 'aws_lambda_function': {},
+                'template_file': {},
             },
             'output': {}
         }
@@ -648,6 +649,19 @@ class TestTerraformGenerator(object):
                 self.cls._generate_endpoint('myname', 'GET')
         assert self.cls.tf_conf == expected_conf
 
+    def test_generate_saved_config(self):
+        type(self.cls.config)._config = {'foo': 'bar', 'baz': 2}
+        expected_conf = self.base_tf_conf
+        expected_conf['resource']['template_file'][
+            'webhook2lambda2sqs_config_json'] = {
+            'template': '$jsonconf',
+            'vars': {
+                'jsonconf': json.dumps({'foo': 'bar', 'baz': 2})
+            }
+        }
+        self.cls._generate_saved_config()
+        assert self.cls.tf_conf == expected_conf
+
     def test_get_config(self):
         with patch('%s.pretty_json' % pbm, autospec=True) as mock_json:
             with patch.multiple(
@@ -662,6 +676,7 @@ class TestTerraformGenerator(object):
                 _generate_iam_role_policy=DEFAULT,
                 _generate_iam_invoke_role_policy=DEFAULT,
                 _generate_api_gateway_deployment=DEFAULT,
+                _generate_saved_config=DEFAULT,
             ) as mocks:
                 mock_json.return_value = 'my_json_str'
                 res = self.cls._get_config('funcsrc')

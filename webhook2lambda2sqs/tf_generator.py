@@ -82,6 +82,7 @@ class TerraformGenerator(object):
                 'aws_iam_role': {},
                 'aws_iam_role_policy': {},
                 'aws_lambda_function': {},
+                'template_file': {},
             },
             'output': {}
         }
@@ -485,6 +486,20 @@ class TerraformGenerator(object):
             ]
         }
 
+    def _generate_saved_config(self):
+        """
+        In order to ease saving webhook2lambda2sqs's JSON configuration,
+        we dump it in the Terraform state in the hopes that remote state
+        storage is being used. Then, at least it can be retrieved from there.
+        """
+        self.tf_conf['resource']['template_file'][
+            'webhook2lambda2sqs_config_json'] = {
+            'template': '$jsonconf',
+            'vars': {
+                'jsonconf': json.dumps(self.config._config)
+            }
+        }
+
     def _get_config(self, func_src):
         """
         Return the full terraform configuration as a JSON string
@@ -503,6 +518,7 @@ class TerraformGenerator(object):
         self._generate_response_models()
         self._generate_api_gateway()
         self._generate_api_gateway_deployment()
+        self._generate_saved_config()
         return pretty_json(self.tf_conf)
 
     def _write_zip(self, func_src, fpath):
