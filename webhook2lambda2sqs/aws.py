@@ -297,11 +297,14 @@ class AWSInfo(object):
 
     def set_method_settings(self):
         """
-        Set the Method settings <https://docs.aws.amazon.com/apigateway/api-
-        reference/resource/stage/#methodSettings> on our Deployment Stage.
-        This is currently not supported by Terraform; see <https://github.com/
-        jantman/webhook2lambda2sqs/issues/7> and <https://github.com/hashicorp
-        /terraform/issues/6612>.
+        Set the Method settings <https://docs.aws.amazon.com/apigateway/api-\
+reference/resource/stage/#methodSettings> on our Deployment Stage.
+        This is currently not supported by Terraform; see <https://github.com/\
+jantman/webhook2lambda2sqs/issues/7> and <https://github.com/hashicorp\
+/terraform/issues/6612>.
+
+        Calls :py:meth:`~._add_method_setting` for each setting that is not
+        currently correct.
         """
         settings = self.config.get('api_gateway_method_settings')
         if settings is None:
