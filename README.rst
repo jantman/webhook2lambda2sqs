@@ -29,9 +29,9 @@ webhook2lambda2sqs
    :target: https://waffle.io/jantman/webhook2lambda2sqs
    :alt: 'Stories in Ready'
 
-.. image:: http://www.repostatus.org/badges/latest/wip.svg
-   :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
-   :target: http://www.repostatus.org/#wip
+.. image:: http://www.repostatus.org/badges/0.1.0/active.svg
+   :alt: Project Status: Active - The project has reached a stable, usable state and is being actively developed.
+   :target: http://www.repostatus.org/#active
 
 Generate code and manage infrastructure for receiving webhooks with AWS API Gateway and pushing to SQS via Lambda.
 
