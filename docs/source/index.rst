@@ -8,6 +8,10 @@ webhook2lambda2sqs
    :target: https://pypi.python.org/pypi/webhook2lambda2sqs
    :alt: pypi version
 
+.. image:: http://jantman-personal-public.s3-website-us-east-1.amazonaws.com/pypi-stats/webhook2lambda2sqs/per-month.svg
+   :target: http://jantman-personal-public.s3-website-us-east-1.amazonaws.com/pypi-stats/webhook2lambda2sqs/index.html
+   :alt: PyPi downloads
+
 .. image:: https://img.shields.io/github/forks/jantman/webhook2lambda2sqs.svg
    :alt: GitHub Forks
    :target: https://github.com/jantman/webhook2lambda2sqs/network
