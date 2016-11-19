@@ -1,3 +1,6 @@
+.. image:: https://badge.waffle.io/jantman/webhook2lambda2sqs.png?label=ready&title=Ready 
+ :target: https://waffle.io/jantman/webhook2lambda2sqs
+ :alt: 'Stories in Ready'
 webhook2lambda2sqs
 ==================
 
