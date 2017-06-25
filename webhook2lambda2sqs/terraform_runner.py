@@ -92,13 +92,15 @@ class TerraformRunner(object):
                             '/5893')
         try:
             self._run_tf('validate', ['.'])
-        except:
+        except Exception as ex:
             logger.critical("Terraform config validation failed. "
                             "This is almost certainly a bug in "
                             "webhook2lambda2sqs; please re-run with '-vv' and "
                             "open a bug at <https://github.com/jantman/"
-                            "webhook2lambda2sqs/issues>")
-            raise Exception('ERROR: Terraform config validation failed.')
+                            "webhook2lambda2sqs/issues>. Exception: %s", ex)
+            raise Exception(
+                'ERROR: Terraform config validation failed: %s' % ex
+            )
 
     def _args_for_remote(self):
         """

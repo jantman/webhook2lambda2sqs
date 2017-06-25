@@ -552,10 +552,10 @@ class TestRunner(object):
     def test_parse_args_tf_actions_non_default(self):
         for action in ['genapply', 'apply', 'plan', 'destroy']:
             res = parse_args([
+                '--tf-version=0.8.4',
                 action,
                 '--terraform-path=/path/to/tf',
                 '-S',
-                '--tf-version=0.8.4'
             ])
             assert res.action == action
             assert res.verbose == 0
