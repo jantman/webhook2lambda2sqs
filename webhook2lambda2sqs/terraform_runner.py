@@ -119,7 +119,7 @@ class TerraformRunner(object):
     def _set_remote(self, stream=False):
         """
         Call :py:meth:`~._args_for_remote`; if the return value is not None,
-        execute 'terraform remote config' with those argumants and ensure it
+        execute 'terraform remote config' with those arguments and ensure it
         exits 0.
 
         :param stream: whether or not to stream TF output in realtime
@@ -165,7 +165,7 @@ class TerraformRunner(object):
         :param stream: whether or not to stream TF output in realtime
         :type stream: bool
         """
-        self._set_remote(stream=stream)
+        self._setup_tf(stream=stream)
         args = ['-input=false', '-refresh=true', '.']
         logger.warning('Running terraform plan: %s', ' '.join(args))
         out = self._run_tf('plan', cmd_args=args, stream=stream)
@@ -200,7 +200,7 @@ class TerraformRunner(object):
         :param stream: whether or not to stream TF output in realtime
         :type stream: bool
         """
-        self._set_remote(stream=stream)
+        self._setup_tf(stream=stream)
         try:
             self._taint_deployment(stream=stream)
         except Exception:
@@ -261,7 +261,7 @@ class TerraformRunner(object):
         :param stream: whether or not to stream TF output in realtime
         :type stream: bool
         """
-        self._set_remote(stream=stream)
+        self._setup_tf(stream=stream)
         args = ['-refresh=true', '-force', '.']
         logger.warning('Running terraform destroy: %s', ' '.join(args))
         out = self._run_tf('destroy', cmd_args=args, stream=stream)
@@ -269,3 +269,13 @@ class TerraformRunner(object):
             logger.warning('Terraform destroy finished successfully.')
         else:
             logger.warning("Terraform destroy finished successfully:\n%s", out)
+
+    def _setup_tf(self, stream=False):
+        """
+        Setup terraform; either 'remote config' or 'init' depending on version.
+        """
+        if self.tf_version < (0, 9, 0):
+            self._set_remote(stream=stream)
+            return
+        self._run_tf('init', stream=stream)
+        logger.info('Terraform initialized')

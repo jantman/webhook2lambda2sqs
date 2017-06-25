@@ -123,6 +123,10 @@ def parse_args(argv):
                                       action='store_false', default=True,
                                       help='DO NOT stream Terraform output to '
                                            'STDOUT (combined) in realtime')
+        tf_p_objs[cname].add_argument('-T', '--tf-version', dest='tf_ver',
+                                      action='store', type=str, default='0.9.0',
+                                      help='terraform version to generate '
+                                           'configurations for')
     apilogparser = subparsers.add_parser('apilogs', help='show last 10 '
                                          'CloudWatch Logs entries for the '
                                          'API Gateway')
@@ -342,20 +346,26 @@ def main(args=None):
         run_test(config, args)
         return
 
+    if args.action in ['apply', 'genapply', 'plan', 'destroy']:
+        runner = TerraformRunner(config, args.tf_path)
+        tf_ver = runner.tf_version
+    else:
+        tf_ver = tuple(
+            [int(x) for x in args.tf_ver.split('.')]
+        )
+
     # if generate or genapply, generate the configs
     if args.action == 'generate' or args.action == 'genapply':
         func_gen = LambdaFuncGenerator(config)
         func_src = func_gen.generate()
         # @TODO: also write func_source to disk
-        tf_gen = TerraformGenerator(config)
+        tf_gen = TerraformGenerator(config, tf_ver=tf_ver)
         tf_gen.generate(func_src)
 
     # if only generate, exit now
     if args.action == 'generate':
         return
 
-    # else setup a Terraform action
-    runner = TerraformRunner(config, args.tf_path)
     # run the terraform action
     if args.action == 'apply' or args.action == 'genapply':
         runner.apply(args.stream_tf)

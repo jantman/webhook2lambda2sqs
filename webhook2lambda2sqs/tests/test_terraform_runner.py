@@ -188,10 +188,12 @@ class TestTerraformRunner(object):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
-                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
-                    mock_run.return_value = 'output'
-                    cls.plan()
-        assert mock_set.mock_calls == [call(cls, stream=False)]
+                with patch('%s._setup_tf' % pb, autospec=True) as mock_setup:
+                    with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                        mock_run.return_value = 'output'
+                        cls.plan()
+        assert mock_setup.mock_calls == [call(cls, stream=False)]
+        assert mock_set.mock_calls == []
         assert mock_run.mock_calls == [
             call(cls, 'plan', cmd_args=['-input=false', '-refresh=true', '.'],
                  stream=False)
@@ -207,10 +209,12 @@ class TestTerraformRunner(object):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
-                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
-                    mock_run.return_value = 'output'
-                    cls.plan(stream=True)
-        assert mock_set.mock_calls == [call(cls, stream=True)]
+                with patch('%s._setup_tf' % pb, autospec=True) as mock_setup:
+                    with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                        mock_run.return_value = 'output'
+                        cls.plan(stream=True)
+        assert mock_setup.mock_calls == [call(cls, stream=True)]
+        assert mock_set.mock_calls == []
         assert mock_run.mock_calls == [
             call(cls, 'plan', cmd_args=['-input=false', '-refresh=true', '.'],
                  stream=True)
@@ -266,14 +270,16 @@ class TestTerraformRunner(object):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
-                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
-                    with patch('%s._taint_deployment' % pb,
-                               autospec=True) as mock_taint:
-                        mock_run.return_value = 'output'
-                        with patch('%s._show_outputs' % pb,
-                                   autospec=True) as mock_show:
-                            cls.apply()
-        assert mock_set.mock_calls == [call(cls, stream=False)]
+                with patch('%s._setup_tf' % pb, autospec=True) as mock_setup:
+                    with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                        with patch('%s._taint_deployment' % pb,
+                                   autospec=True) as mock_taint:
+                            mock_run.return_value = 'output'
+                            with patch('%s._show_outputs' % pb,
+                                       autospec=True) as mock_show:
+                                cls.apply()
+        assert mock_setup.mock_calls == [call(cls, stream=False)]
+        assert mock_set.mock_calls == []
         assert mock_run.mock_calls == [
             call(cls, 'apply', cmd_args=['-input=false', '-refresh=true', '.'],
                  stream=False)
@@ -295,15 +301,17 @@ class TestTerraformRunner(object):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
-                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
-                    with patch('%s._taint_deployment' % pb,
-                               autospec=True) as mock_taint:
-                        mock_run.return_value = 'output'
-                        mock_taint.side_effect = se_exc
-                        with patch('%s._show_outputs' % pb,
-                                   autospec=True) as mock_show:
-                            cls.apply(stream=True)
-        assert mock_set.mock_calls == [call(cls, stream=True)]
+                with patch('%s._setup_tf' % pb, autospec=True) as mock_setup:
+                    with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                        with patch('%s._taint_deployment' % pb,
+                                   autospec=True) as mock_taint:
+                            mock_run.return_value = 'output'
+                            mock_taint.side_effect = se_exc
+                            with patch('%s._show_outputs' % pb,
+                                       autospec=True) as mock_show:
+                                cls.apply(stream=True)
+        assert mock_setup.mock_calls == [call(cls, stream=True)]
+        assert mock_set.mock_calls == []
         assert mock_run.mock_calls == [
             call(cls, 'apply', cmd_args=['-input=false', '-refresh=true', '.'],
                  stream=True)
@@ -377,10 +385,12 @@ class TestTerraformRunner(object):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
-                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
-                    mock_run.return_value = 'output'
-                    cls.destroy()
-        assert mock_set.mock_calls == [call(cls, stream=False)]
+                with patch('%s._setup_tf' % pb, autospec=True) as mock_setup:
+                    with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                        mock_run.return_value = 'output'
+                        cls.destroy()
+        assert mock_setup.mock_calls == [call(cls, stream=False)]
+        assert mock_set.mock_calls == []
         assert mock_run.mock_calls == [
             call(cls, 'destroy', cmd_args=['-refresh=true', '-force', '.'],
                  stream=False)
@@ -397,10 +407,12 @@ class TestTerraformRunner(object):
             cls = TerraformRunner(self.mock_config(), 'terraform-bin')
         with patch('%s.logger' % pbm, autospec=True) as mock_logger:
             with patch('%s._set_remote' % pb, autospec=True) as mock_set:
-                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
-                    mock_run.return_value = 'output'
-                    cls.destroy(stream=True)
-        assert mock_set.mock_calls == [call(cls, stream=True)]
+                with patch('%s._setup_tf' % pb, autospec=True) as mock_setup:
+                    with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                        mock_run.return_value = 'output'
+                        cls.destroy(stream=True)
+        assert mock_setup.mock_calls == [call(cls, stream=True)]
+        assert mock_set.mock_calls == []
         assert mock_run.mock_calls == [
             call(cls, 'destroy', cmd_args=['-refresh=true', '-force', '.'],
                  stream=True)
@@ -521,4 +533,34 @@ class TestTerraformRunner(object):
                           "certainly a bug in webhook2lambda2sqs; please "
                           "re-run with '-vv' and open a bug at <https://"
                           "github.com/jantman/webhook2lambda2sqs/issues>")
+        ]
+
+    def test_setup_tf_pre090(self):
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform')
+        cls.tf_version = (0, 7, 2)
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s._set_remote' % pb, autospec=True) as mock_set_rmt:
+                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                    mock_run.return_value = ('myoutput', 0)
+                    cls._setup_tf()
+        assert mock_set_rmt.mock_calls == [call(cls, stream=False)]
+        assert mock_run.mock_calls == []
+        assert mock_logger.mock_calls == []
+
+    def test_setup_tf_090(self):
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform')
+        cls.tf_version = (0, 9, 0)
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s._set_remote' % pb, autospec=True) as mock_set_rmt:
+                with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                    mock_run.return_value = ('myoutput', 0)
+                    cls._setup_tf(stream=True)
+        assert mock_set_rmt.mock_calls == []
+        assert mock_run.mock_calls == [
+            call(cls, 'init', stream=True)
+        ]
+        assert mock_logger.mock_calls == [
+            call.info('Terraform initialized')
         ]

@@ -73,7 +73,8 @@ class TestTerraformGenerator(object):
         config.get.side_effect = se_get
         type(config).func_name = 'myFuncName'
         type(config).stage_name = 'mystagename'
-        self.cls = TerraformGenerator(config)
+        with patch('%s._setup_tf_config' % pb):
+            self.cls = TerraformGenerator(config)
         self.cls.aws_region = 'myregion'
         self.cls.aws_account_id = '1234'
         self.base_tf_conf = {
@@ -105,12 +106,75 @@ class TestTerraformGenerator(object):
         config = Mock()
         config.get.side_effect = se_get
         type(config).func_name = 'foobar'
-        cls = TerraformGenerator(config)
+        with patch('%s._setup_tf_config' % pb, autospec=True) as mock_setup:
+            cls = TerraformGenerator(config)
+        assert mock_setup.mock_calls == [call(cls)]
         assert cls.config == config
         assert cls.resource_name == 'foobar'
         assert cls.aws_account_id is None
         assert cls.aws_region is None
         assert cls.tf_conf == self.base_tf_conf
+        assert cls._tf_ver == (0, 9, 0)
+
+    def test_init_old_ver(self):
+        conf = {}
+
+        def se_get(k):
+            return conf.get(k, None)
+
+        config = Mock()
+        config.get.side_effect = se_get
+        type(config).func_name = 'foobar'
+        with patch('%s._setup_tf_config' % pb, autospec=True) as mock_setup:
+            cls = TerraformGenerator(config, tf_ver=(0, 7, 9))
+        assert mock_setup.mock_calls == [call(cls)]
+        assert cls.config == config
+        assert cls.resource_name == 'foobar'
+        assert cls.aws_account_id is None
+        assert cls.aws_region is None
+        assert cls.tf_conf == self.base_tf_conf
+        assert cls._tf_ver == (0, 7, 9)
+
+    def test_setup_tf_config_pre090(self):
+        self.cls._tf_ver = (0, 7, 4)
+        assert self.cls.tf_conf == self.base_tf_conf
+        expected = self.base_tf_conf
+        self.cls._setup_tf_config()
+        assert self.cls.tf_conf == expected
+
+    def test_setup_tf_config_094(self):
+        self.cls._tf_ver = (0, 9, 4)
+        assert self.cls.tf_conf == self.base_tf_conf
+        expected = deepcopy(self.base_tf_conf)
+        expected['terraform'] = {'required_version': '>= 0.9.0'}
+        self.cls._setup_tf_config()
+        assert self.cls.tf_conf == expected
+
+    def test_setup_tf_config_094_rmt(self):
+        self.conf = deepcopy(Config._example)
+
+        def se_get(k):
+            return self.conf.get(k, None)
+
+        config = Mock()
+        config.get.side_effect = se_get
+        type(config).func_name = 'myFuncName'
+        type(config).stage_name = 'mystagename'
+
+        self.cls._tf_ver = (0, 9, 4)
+        assert self.cls.tf_conf == self.base_tf_conf
+        self.cls.config = config
+        expected = deepcopy(self.base_tf_conf)
+        expected['terraform'] = {
+            'required_version': '>= 0.9.0',
+            'backend': {
+                'backend_name': {
+                    'option_name': 'option_value'
+                }
+            }
+        }
+        self.cls._setup_tf_config()
+        assert self.cls.tf_conf == expected
 
     def test_description(self):
         assert self.cls.description == 'push webhook contents to SQS - ' \
