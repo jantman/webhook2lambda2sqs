@@ -1,5 +1,5 @@
-webhook2lambda2sqs.aws module
-=============================
+webhook2lambda2sqs\.aws module
+==============================
 
 .. automodule:: webhook2lambda2sqs.aws
     :members:

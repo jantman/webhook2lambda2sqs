@@ -77,7 +77,7 @@ def parse_args(argv):
     Use Argparse to parse command-line arguments.
 
     :param argv: list of arguments to parse (``sys.argv[1:]``)
-    :type argv: list
+    :type argv: :std:term:`list`
     :return: parsed arguments
     :rtype: :py:class:`argparse.Namespace`
     """

@@ -233,7 +233,7 @@ class AWSInfo(object):
         Return a list of all unique queue names in our config.
 
         :return: list of all queue names (str)
-        :rtype: list
+        :rtype: :std:term:`list`
         """
         queues = set()
         endpoints = self.config.get('endpoints')

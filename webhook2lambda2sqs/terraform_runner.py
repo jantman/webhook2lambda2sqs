@@ -108,7 +108,7 @@ class TerraformRunner(object):
         not present in configuration.
 
         :return: list of args for 'terraform remote config' or None
-        :rtype: list
+        :rtype: :std:term:`list`
         """
         conf = self.config.get('terraform_remote_state')
         if conf is None:
@@ -145,7 +145,7 @@ class TerraformRunner(object):
         :param cmd: terraform command to run
         :type cmd: str
         :param cmd_args: arguments to command
-        :type cmd_args: list
+        :type cmd_args: :std:term:`list`
         :return: command output
         :rtype: str
         :raises: Exception on non-zero exit

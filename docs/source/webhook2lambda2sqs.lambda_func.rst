@@ -1,5 +1,5 @@
-webhook2lambda2sqs.lambda_func module
-=====================================
+webhook2lambda2sqs\.lambda\_func module
+=======================================
 
 .. automodule:: webhook2lambda2sqs.lambda_func
     :members:

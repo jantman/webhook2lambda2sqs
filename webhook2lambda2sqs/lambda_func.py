@@ -70,7 +70,7 @@ def queues_for_endpoint(event):
     :param event: Lambda event that triggered the handler
     :type event: dict
     :return: list of queues for endpoint
-    :rtype: list
+    :rtype: :std:term:`list`
     :raises: Exception
     """
     global endpoints  # endpoint config that's templated in by generator
