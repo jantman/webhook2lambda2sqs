@@ -234,8 +234,14 @@ class TerraformRunner(object):
             logger.debug('Running: terraform output')
             res = self._run_tf('output', cmd_args=['-json'])
             outs = json.loads(res.strip())
-            logger.debug('Terraform outputs: %s', outs)
-            return outs
+            res = {}
+            for k in outs.keys():
+                if isinstance(outs[k], type({})):
+                    res[k] = outs[k]['value']
+                else:
+                    res[k] = outs[k]
+            logger.debug('Terraform outputs: %s', res)
+            return res
         logger.debug('Running: terraform output')
         res = self._run_tf('output')
         outs = {}
