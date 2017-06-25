@@ -96,6 +96,9 @@ def parse_args(argv):
                    version='webhook2lambda2sqs v%s <%s>' % (
                        VERSION, PROJECT_URL
                    ))
+    p.add_argument('-T', '--tf-version', dest='tf_ver', action='store',
+                   type=str, default='0.9.0',
+                   help='terraform version to generate configurations for')
     subparsers = p.add_subparsers(title='Action (Subcommand)', dest='action',
                                   metavar='ACTION', description='Action to '
                                   'perform; each action may take further '
@@ -123,10 +126,6 @@ def parse_args(argv):
                                       action='store_false', default=True,
                                       help='DO NOT stream Terraform output to '
                                            'STDOUT (combined) in realtime')
-        tf_p_objs[cname].add_argument('-T', '--tf-version', dest='tf_ver',
-                                      action='store', type=str, default='0.9.0',
-                                      help='terraform version to generate '
-                                           'configurations for')
     apilogparser = subparsers.add_parser('apilogs', help='show last 10 '
                                          'CloudWatch Logs entries for the '
                                          'API Gateway')
