@@ -508,12 +508,15 @@ class TestTerraformRunner(object):
                                          'hashicorp/terraform/pull/5893'
 
     def test_validate_fail(self):
+
+        exc = Exception()
+
         def se_run(*args, **kwargs):
             print(args)
             if args[0] == 'version':
                 return "Terraform v1.2.3\nfoo\n"
             if args[0] == 'validate':
-                raise Exception()
+                raise exc
 
         # validate is called in __init__; we can't easily patch and re-call
         with patch('%s._run_tf' % pb) as mock_run:
@@ -522,7 +525,7 @@ class TestTerraformRunner(object):
                 with pytest.raises(Exception) as excinfo:
                     TerraformRunner(self.mock_config(), 'terraform-bin')
         assert exc_msg(excinfo.value) == 'ERROR: Terraform config validation ' \
-                                         'failed.'
+                                         'failed: '
         assert mock_run.mock_calls == [
             call('version'),
             call('validate', ['.'])
@@ -532,7 +535,8 @@ class TestTerraformRunner(object):
             call.critical("Terraform config validation failed. This is almost "
                           "certainly a bug in webhook2lambda2sqs; please "
                           "re-run with '-vv' and open a bug at <https://"
-                          "github.com/jantman/webhook2lambda2sqs/issues>")
+                          "github.com/jantman/webhook2lambda2sqs/issues>. "
+                          "Exception: %s", exc)
         ]
 
     def test_setup_tf_pre090(self):

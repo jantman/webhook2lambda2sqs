@@ -852,13 +852,13 @@ class TestRunner(object):
         assert mocks['requests'].mock_calls == [
             call.get('mybase/ep1/', params={
                 'message': 'testing via webhook2lambda2sqs CLI',
-                'version': '0.1.0',
+                'version': VERSION,
                 'host': 'mynode',
                 'datetime': '2016-07-01T02:03:04.000000'
             }),
             call.post('mybase/ep2/', json={
                 'message': 'testing via webhook2lambda2sqs CLI',
-                'version': '0.1.0',
+                'version': VERSION,
                 'host': 'mynode',
                 'datetime': '2016-07-01T02:03:04.000000'
             })
@@ -916,7 +916,7 @@ class TestRunner(object):
         assert mocks['requests'].mock_calls == [
             call.get('mybase/ep1/', params={
                 'message': 'testing via webhook2lambda2sqs CLI',
-                'version': '0.1.0',
+                'version': VERSION,
                 'host': 'mynode',
                 'datetime': '2016-07-01T02:03:04.000000'
             })
