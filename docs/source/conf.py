@@ -334,7 +334,7 @@ sphinx.environment.BuildEnvironment.warn_node = _warn_node
 def _images_log_warning(self, msg, *args, **kwargs):
     if msg.startswith(
             'Could not fetch remote image: '
-            'https://readthedocs.org/projects/awslimitchecker/badge/?'
+            'https://readthedocs.org/projects/webhook2lambda2sqs/badge/?'
     ):
         print('Suppressing RTD badge remote image warning: %s' % msg)
         return
