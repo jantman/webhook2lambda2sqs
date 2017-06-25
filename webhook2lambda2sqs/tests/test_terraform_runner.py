@@ -368,6 +368,43 @@ class TestTerraformRunner(object):
             call.debug('Terraform outputs: %s', expected)
         ]
 
+    def test_get_outputs_0point8plus(self):
+        expected = {
+            'base_url': 'https://ljgx260ix7.execute-api.us-east-1.ama/bar/',
+            'arn': 'arn:aws:iam::1234567890:role/foo',
+            'foobar': 'foo = bar = baz.w32'
+        }
+        resp = json.dumps({
+            'base_url': {
+                'value': 'https://ljgx260ix7.execute-api.us-east-1.ama/bar/',
+                'type': 'string',
+                'sensitive': 'false'
+            },
+            'arn': {
+                'value': 'arn:aws:iam::1234567890:role/foo',
+                'type': 'string',
+                'sensitive': 'false'
+            },
+            'foobar': {
+                'value': 'foo = bar = baz.w32',
+                'type': 'string',
+                'sensitive': 'false'
+            }
+        }) + "\n"
+        with patch('%s._validate' % pb):
+            cls = TerraformRunner(self.mock_config(), 'terraform-bin')
+            cls.tf_version = (0, 7, 0)
+        with patch('%s.logger' % pbm, autospec=True) as mock_logger:
+            with patch('%s._run_tf' % pb, autospec=True) as mock_run:
+                mock_run.return_value = resp
+                res = cls._get_outputs()
+        assert res == expected
+        assert mock_run.mock_calls == [call(cls, 'output', cmd_args=['-json'])]
+        assert mock_logger.mock_calls == [
+            call.debug('Running: terraform output'),
+            call.debug('Terraform outputs: %s', expected)
+        ]
+
     def test_show_outputs(self, capsys):
         outs = {'a': 'b', 'foo': 'bar'}
         with patch('%s._get_outputs' % pb, autospec=True) as mock_get:
