@@ -92,13 +92,15 @@ class TerraformRunner(object):
                             '/5893')
         try:
             self._run_tf('validate', ['.'])
-        except:
+        except Exception as ex:
             logger.critical("Terraform config validation failed. "
                             "This is almost certainly a bug in "
                             "webhook2lambda2sqs; please re-run with '-vv' and "
                             "open a bug at <https://github.com/jantman/"
-                            "webhook2lambda2sqs/issues>")
-            raise Exception('ERROR: Terraform config validation failed.')
+                            "webhook2lambda2sqs/issues>. Exception: %s", ex)
+            raise Exception(
+                'ERROR: Terraform config validation failed: %s' % ex
+            )
 
     def _args_for_remote(self):
         """
@@ -106,7 +108,7 @@ class TerraformRunner(object):
         not present in configuration.
 
         :return: list of args for 'terraform remote config' or None
-        :rtype: list
+        :rtype: :std:term:`list`
         """
         conf = self.config.get('terraform_remote_state')
         if conf is None:
@@ -119,7 +121,7 @@ class TerraformRunner(object):
     def _set_remote(self, stream=False):
         """
         Call :py:meth:`~._args_for_remote`; if the return value is not None,
-        execute 'terraform remote config' with those argumants and ensure it
+        execute 'terraform remote config' with those arguments and ensure it
         exits 0.
 
         :param stream: whether or not to stream TF output in realtime
@@ -143,7 +145,7 @@ class TerraformRunner(object):
         :param cmd: terraform command to run
         :type cmd: str
         :param cmd_args: arguments to command
-        :type cmd_args: list
+        :type cmd_args: :std:term:`list`
         :return: command output
         :rtype: str
         :raises: Exception on non-zero exit
@@ -165,7 +167,7 @@ class TerraformRunner(object):
         :param stream: whether or not to stream TF output in realtime
         :type stream: bool
         """
-        self._set_remote(stream=stream)
+        self._setup_tf(stream=stream)
         args = ['-input=false', '-refresh=true', '.']
         logger.warning('Running terraform plan: %s', ' '.join(args))
         out = self._run_tf('plan', cmd_args=args, stream=stream)
@@ -200,7 +202,7 @@ class TerraformRunner(object):
         :param stream: whether or not to stream TF output in realtime
         :type stream: bool
         """
-        self._set_remote(stream=stream)
+        self._setup_tf(stream=stream)
         try:
             self._taint_deployment(stream=stream)
         except Exception:
@@ -234,8 +236,14 @@ class TerraformRunner(object):
             logger.debug('Running: terraform output')
             res = self._run_tf('output', cmd_args=['-json'])
             outs = json.loads(res.strip())
-            logger.debug('Terraform outputs: %s', outs)
-            return outs
+            res = {}
+            for k in outs.keys():
+                if isinstance(outs[k], type({})):
+                    res[k] = outs[k]['value']
+                else:
+                    res[k] = outs[k]
+            logger.debug('Terraform outputs: %s', res)
+            return res
         logger.debug('Running: terraform output')
         res = self._run_tf('output')
         outs = {}
@@ -255,7 +263,7 @@ class TerraformRunner(object):
         :param stream: whether or not to stream TF output in realtime
         :type stream: bool
         """
-        self._set_remote(stream=stream)
+        self._setup_tf(stream=stream)
         args = ['-refresh=true', '-force', '.']
         logger.warning('Running terraform destroy: %s', ' '.join(args))
         out = self._run_tf('destroy', cmd_args=args, stream=stream)
@@ -263,3 +271,13 @@ class TerraformRunner(object):
             logger.warning('Terraform destroy finished successfully.')
         else:
             logger.warning("Terraform destroy finished successfully:\n%s", out)
+
+    def _setup_tf(self, stream=False):
+        """
+        Setup terraform; either 'remote config' or 'init' depending on version.
+        """
+        if self.tf_version < (0, 9, 0):
+            self._set_remote(stream=stream)
+            return
+        self._run_tf('init', stream=stream)
+        logger.info('Terraform initialized')

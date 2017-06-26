@@ -1,5 +1,5 @@
-webhook2lambda2sqs.version module
-=================================
+webhook2lambda2sqs\.version module
+==================================
 
 .. automodule:: webhook2lambda2sqs.version
     :members:

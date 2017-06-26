@@ -1,5 +1,5 @@
-webhook2lambda2sqs.runner module
-================================
+webhook2lambda2sqs\.runner module
+=================================
 
 .. automodule:: webhook2lambda2sqs.runner
     :members:

@@ -77,7 +77,7 @@ def parse_args(argv):
     Use Argparse to parse command-line arguments.
 
     :param argv: list of arguments to parse (``sys.argv[1:]``)
-    :type argv: list
+    :type argv: :std:term:`list`
     :return: parsed arguments
     :rtype: :py:class:`argparse.Namespace`
     """
@@ -96,6 +96,9 @@ def parse_args(argv):
                    version='webhook2lambda2sqs v%s <%s>' % (
                        VERSION, PROJECT_URL
                    ))
+    p.add_argument('-T', '--tf-version', dest='tf_ver', action='store',
+                   type=str, default='0.9.0',
+                   help='terraform version to generate configurations for')
     subparsers = p.add_subparsers(title='Action (Subcommand)', dest='action',
                                   metavar='ACTION', description='Action to '
                                   'perform; each action may take further '
@@ -342,20 +345,26 @@ def main(args=None):
         run_test(config, args)
         return
 
+    if args.action in ['apply', 'genapply', 'plan', 'destroy']:
+        runner = TerraformRunner(config, args.tf_path)
+        tf_ver = runner.tf_version
+    else:
+        tf_ver = tuple(
+            [int(x) for x in args.tf_ver.split('.')]
+        )
+
     # if generate or genapply, generate the configs
     if args.action == 'generate' or args.action == 'genapply':
         func_gen = LambdaFuncGenerator(config)
         func_src = func_gen.generate()
         # @TODO: also write func_source to disk
-        tf_gen = TerraformGenerator(config)
+        tf_gen = TerraformGenerator(config, tf_ver=tf_ver)
         tf_gen.generate(func_src)
 
     # if only generate, exit now
     if args.action == 'generate':
         return
 
-    # else setup a Terraform action
-    runner = TerraformRunner(config, args.tf_path)
     # run the terraform action
     if args.action == 'apply' or args.action == 'genapply':
         runner.apply(args.stream_tf)

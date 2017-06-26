@@ -1,5 +1,5 @@
-webhook2lambda2sqs.utils module
-===============================
+webhook2lambda2sqs\.utils module
+================================
 
 .. automodule:: webhook2lambda2sqs.utils
     :members:

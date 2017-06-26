@@ -59,12 +59,14 @@ class TerraformGenerator(object):
     ``tf_config`` dict.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, tf_ver=(0, 9, 0)):
         """
         Initialize the Terraform config generator.
 
         :param config: program configuration
         :type config: :py:class:`~.Config`
+        :param tf_ver: target terraform version
+        :type tf_ver: tuple
         """
         self.config = config
         self.tf_conf = {
@@ -86,9 +88,23 @@ class TerraformGenerator(object):
             },
             'output': {}
         }
+        self._tf_ver = tf_ver
+        logger.info('Generating config for terraform version: %s', tf_ver)
         self.resource_name = config.func_name
         self.aws_account_id = None
         self.aws_region = None
+        self._setup_tf_config()
+
+    def _setup_tf_config(self):
+        if self._tf_ver < (0, 9, 0):
+            return
+        self.tf_conf['terraform'] = {'required_version': '>= 0.9.0'}
+        if self.config.get('terraform_remote_state') is None:
+            return
+        rmt = self.config.get('terraform_remote_state')
+        self.tf_conf['terraform']['backend'] = {
+            rmt['backend']: rmt['config']
+        }
 
     @property
     def description(self):

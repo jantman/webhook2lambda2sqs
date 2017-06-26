@@ -56,9 +56,9 @@ if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock, DEFAULT  # noqa
+    from mock import patch, call, Mock, DEFAULT, PropertyMock  # noqa
 else:
-    from unittest.mock import patch, call, Mock, DEFAULT  # noqa
+    from unittest.mock import patch, call, Mock, DEFAULT, PropertyMock  # noqa
 
 pbm = 'webhook2lambda2sqs.runner'
 
@@ -144,7 +144,7 @@ class TestRunner(object):
         """
 
         mock_args = Mock(verbose=1, action='generate', config='cpath',
-                         stream_tf=False)
+                         stream_tf=False, tf_ver='0.9.0')
         with patch('%s.logger' % pbm, autospec=True) as mocklogger:
             with patch.multiple(
                 pbm,
@@ -171,7 +171,7 @@ class TestRunner(object):
             call().generate()
         ]
         assert mocks['TerraformGenerator'].mock_calls == [
-            call(mocks['Config'].return_value),
+            call(mocks['Config'].return_value, tf_ver=(0, 9, 0)),
             call().generate('myfunc')
         ]
         assert mocks['TerraformRunner'].mock_calls == []
@@ -206,6 +206,9 @@ class TestRunner(object):
             ) as mocks:
                 mocks['Config'].example_config.return_value = 'config-ex'
                 mocks['Config'].return_value.get.side_effect = se_get
+                type(
+                    mocks['TerraformRunner'].return_value
+                ).tf_version = PropertyMock(return_value=(0, 7, 9))
                 mocks['LambdaFuncGenerator'
                       ''].return_value.generate.return_value = 'myfunc'
                 main(mock_args)
@@ -220,7 +223,7 @@ class TestRunner(object):
             call().generate()
         ]
         assert mocks['TerraformGenerator'].mock_calls == [
-            call(mocks['Config'].return_value),
+            call(mocks['Config'].return_value, tf_ver=(0, 7, 9)),
             call().generate('myfunc')
         ]
         assert mocks['TerraformRunner'].mock_calls == [
@@ -544,14 +547,21 @@ class TestRunner(object):
             assert res.verbose == 0
             assert res.tf_path == 'terraform'
             assert res.stream_tf is True
+            assert res.tf_ver == '0.9.0'
 
     def test_parse_args_tf_actions_non_default(self):
         for action in ['genapply', 'apply', 'plan', 'destroy']:
-            res = parse_args([action, '--terraform-path=/path/to/tf', '-S'])
+            res = parse_args([
+                '--tf-version=0.8.4',
+                action,
+                '--terraform-path=/path/to/tf',
+                '-S',
+            ])
             assert res.action == action
             assert res.verbose == 0
             assert res.tf_path == '/path/to/tf'
             assert res.stream_tf is False
+            assert res.tf_ver == '0.8.4'
 
     def test_parse_args_apilogs(self):
         res = parse_args(['apilogs'])
@@ -842,13 +852,13 @@ class TestRunner(object):
         assert mocks['requests'].mock_calls == [
             call.get('mybase/ep1/', params={
                 'message': 'testing via webhook2lambda2sqs CLI',
-                'version': '0.1.0',
+                'version': VERSION,
                 'host': 'mynode',
                 'datetime': '2016-07-01T02:03:04.000000'
             }),
             call.post('mybase/ep2/', json={
                 'message': 'testing via webhook2lambda2sqs CLI',
-                'version': '0.1.0',
+                'version': VERSION,
                 'host': 'mynode',
                 'datetime': '2016-07-01T02:03:04.000000'
             })
@@ -906,7 +916,7 @@ class TestRunner(object):
         assert mocks['requests'].mock_calls == [
             call.get('mybase/ep1/', params={
                 'message': 'testing via webhook2lambda2sqs CLI',
-                'version': '0.1.0',
+                'version': VERSION,
                 'host': 'mynode',
                 'datetime': '2016-07-01T02:03:04.000000'
             })

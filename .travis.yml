@@ -15,6 +15,8 @@ matrix:
       env: TOXENV=py34 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
     - python: "3.5"
       env: TOXENV=py35 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
+    - python: "3.6"
+      env: TOXENV=py36 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
     - python: "2.7"
       env: TOXENV=docs PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
 
