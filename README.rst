@@ -29,11 +29,35 @@ webhook2lambda2sqs
    :target: https://readthedocs.org/projects/webhook2lambda2sqs/?badge=latest
    :alt: sphinx documentation for latest release
 
-.. image:: http://www.repostatus.org/badges/0.1.0/active.svg
-   :alt: Project Status: Active - The project has reached a stable, usable state and is being actively developed.
-   :target: http://www.repostatus.org/#active
+.. image:: http://www.repostatus.org/badges/latest/unsupported.svg
+   :alt: Project Status: Unsupported – The project has reached a stable, usable state but the author(s) have ceased all work on it. A new maintainer may be desired.
+   :target: http://www.repostatus.org/#unsupported
 
 Generate code and manage infrastructure for receiving webhooks with AWS API Gateway and pushing to SQS via Lambda.
+
+Deprecated and Unsupported
+--------------------------
+
+This project is now deprecated; I'll provide support as possible, but I don't use it myself anymore.
+This was originally written in July 2016, and targeted Terraform 0.6 or 0.7. There have been a *lot* of
+changes to both Terraform and API Gateway since then, and the combination of these changes make this project
+obsolete.
+
+Most importantly, API Gateway now supports `proxy integrations with Lambda <http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-set-up-simple-proxy.html>`_,
+allowing API Gateway to pass through *all methods* on *all paths* of an API to Lambda. Using the `Python runtime <http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-create-api-as-simple-proxy-for-lambda.html#api-gateway-proxy-integration-lambda-function-python>`_,
+this results in the Lambda function essentially being `passed <http://docs.aws.amazon.com/apigateway/latest/developerguide/integration-passthrough-behaviors.html>`_
+**all** of the HTTP request information (path, URL parameters, body, headers, etc.) and then being able to return a dictionary specifying the HTTP response code,
+body and headers.
+
+Recent versions of Terraform also have much better support for sequence and mapping types (lists and dicts) as well as some rudimentary support for
+iteration and conditionals. However, with the Lambda proxy/pass-through functionality of API Gateway, it's now possible to do everything this project
+aims to do with native terraform for the API Gateway and Lambda, and configuration completely on the Lambda side.
+
+I'll update this README if I ever write a Terraform module to replace this (I haven't had need yet), but the short version is, this project can now
+be completely replaced by a native Terraform module.
+
+Introduction
+------------
 
 Webhooks are great, and many projects and services are now offering them as a notification option. But sometimes
 it makes more sense to have the messages in a queue that can absorb changes in rate and de-couple the sending service from a potentially slow or unavailable backend.
