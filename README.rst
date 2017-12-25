@@ -29,10 +29,6 @@ webhook2lambda2sqs
    :target: https://readthedocs.org/projects/webhook2lambda2sqs/?badge=latest
    :alt: sphinx documentation for latest release
 
-.. image:: https://badge.waffle.io/jantman/webhook2lambda2sqs.png?label=ready&title=Ready
-   :target: https://waffle.io/jantman/webhook2lambda2sqs
-   :alt: 'Stories in Ready'
-
 .. image:: http://www.repostatus.org/badges/0.1.0/active.svg
    :alt: Project Status: Active - The project has reached a stable, usable state and is being actively developed.
    :target: http://www.repostatus.org/#active
@@ -63,7 +59,7 @@ Requirements
 ------------
 
 * An Amazon AWS account to run this all in (note - it will probably be cheap, but not free)
-* Python 2.7+ (currently tested with 2.7, 3.3, 3.4, 3.5). Note that AWS Lambda currently only supports python 2.7 as an execution environment, but you're welcome to use other versions on the machine where you run this project.
+* Python 2.7 or 3.4+ (currently tested with 2.7, 3.4, 3.5, 3.6).
 * Python `VirtualEnv <http://www.virtualenv.org/>`_ and ``pip`` (recommended installation method; your OS/distribution should have packages for these)
 * `HashiCorp Terraform <https://www.terraform.io/>`_ >= 0.6.16 to manage the AWS infrastructure, if desired. Terraform is written in Go,  and `distributed <https://www.terraform.io/downloads.html>`_ as a static binary.
 

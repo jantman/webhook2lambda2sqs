@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Unreleased Changes
+------------------
+
+* Stop testing Python 3.3
+
 0.2.0 (2017-06-25)
 ------------------
 
