@@ -5,8 +5,8 @@ webhook2lambda2sqs
    :target: https://pypi.python.org/pypi/webhook2lambda2sqs
    :alt: pypi version
 
-.. image:: http://jantman-personal-public.s3-website-us-east-1.amazonaws.com/pypi-stats/webhook2lambda2sqs/per-month.svg
-   :target: http://jantman-personal-public.s3-website-us-east-1.amazonaws.com/pypi-stats/webhook2lambda2sqs/index.html
+.. image:: https://pepy.tech/badge/webhook2lambda2sqs/month
+   :target: https://pypistats.org/packages/webhook2lambda2sqs
    :alt: PyPi downloads
 
 .. image:: https://img.shields.io/github/forks/jantman/webhook2lambda2sqs.svg
